@@ -12,10 +12,6 @@
 #ifndef _LUNACOMMON_H
 #define _LUNACOMMON_H
 
-#ifndef LUNA_OQS
-# define OSSL_DISPATCH_END { 0, NULL }
-#endif
-
 /* openssl headers */
 #define OPENSSL_SUPPRESS_DEPRECATED
 #include <openssl/core.h>
