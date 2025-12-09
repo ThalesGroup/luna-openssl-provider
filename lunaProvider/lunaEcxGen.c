@@ -143,6 +143,23 @@ static int ecx_has(const void *keydata, int selection)
 
     LUNA_PRINTF(("ossl_prov_is_running\n"));
     if (ossl_prov_is_running() && key != NULL) {
+        /* For private key selection, check if this is an HSM key.
+         * Reject software/ephemeral keys - let default provider handle them.
+         * This is critical for TLS 1.3 ephemeral X25519/X448 keys.
+         */
+        if ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0) {
+            const int rc_check = luna_prov_ecx_check_private(key);
+            if (luna_prov_check_is_software(rc_check)) {
+                /* Software/ephemeral key - tell OpenSSL we don't "have" it */
+                return 0;
+            }
+            if (!luna_prov_check_is_hardware(rc_check)) {
+                /* Error - malformed key */
+                return 0;
+            }
+            /* HSM key - continue with normal checks */
+        }
+
         /*
          * ECX keys always have all the parameters they need (i.e. none).
          * Therefore we always return with 1, if asked about parameters.

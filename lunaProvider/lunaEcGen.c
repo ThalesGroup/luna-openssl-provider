@@ -301,6 +301,23 @@ int ec_has(const void *keydata, int selection)
     if ((selection & EC_POSSIBLE_SELECTIONS) == 0)
         return 1; /* the selection is not missing */
 
+    /* For private key selection, check if this is an HSM key.
+     * Reject software/ephemeral keys - let default provider handle them.
+     * This is critical for TLS 1.3 ephemeral ECDH keys.
+     */
+    if ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0) {
+        const int rc_check = luna_prov_ec_check_private(ec);
+        if (luna_prov_check_is_software(rc_check)) {
+            /* Software/ephemeral key - tell OpenSSL we don't "have" it */
+            return 0;
+        }
+        if (!luna_prov_check_is_hardware(rc_check)) {
+            /* Error - malformed key */
+            return 0;
+        }
+        /* HSM key - continue with normal checks */
+    }
+
     if ((selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY) != 0)
         ok = ok && (EC_KEY_get0_public_key(ec) != NULL);
     if ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0)

@@ -105,6 +105,21 @@ int luna_ecdh_init(void *vpecdhctx, void *vecdh, const OSSL_PARAM params[])
             || vecdh == NULL
             || !EC_KEY_up_ref(vecdh))
         return 0;
+
+    /* Check if this is an HSM key - reject software/ephemeral keys */
+    const int rc_check = luna_prov_ec_check_private(vecdh);
+    if (luna_prov_check_is_software(rc_check)) {
+        /* This is a software/ephemeral key - refuse to handle it.
+         * OpenSSL will fall back to default provider.
+         * This is critical for TLS 1.3 ephemeral ECDH keys.
+         */
+        return 0;
+    }
+    if (!luna_prov_check_is_hardware(rc_check)) {
+        /* Error case - malformed key */
+        return 0;
+    }
+
     EC_KEY_free(pecdhctx->k);
     pecdhctx->k = vecdh;
     pecdhctx->cofactor_mode = -1;

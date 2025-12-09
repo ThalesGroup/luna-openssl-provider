@@ -96,6 +96,23 @@ static int ecx_init(void *vecxctx, void *vkey,
         return 0;
     }
 
+    /* Check if this is an HSM key - reject software/ephemeral keys.
+     * This is critical for TLS 1.3 ephemeral X25519/X448 keys.
+     */
+    const int rc_check = luna_prov_ecx_check_private(key);
+    if (luna_prov_check_is_software(rc_check)) {
+        /* Software/ephemeral key - refuse to handle it.
+         * OpenSSL will fall back to default provider.
+         */
+        ossl_ecx_key_free(key);
+        return 0;
+    }
+    if (!luna_prov_check_is_hardware(rc_check)) {
+        /* Error case - malformed key */
+        ossl_ecx_key_free(key);
+        return 0;
+    }
+
     ossl_ecx_key_free(ecxctx->key);
     ecxctx->key = key;
 

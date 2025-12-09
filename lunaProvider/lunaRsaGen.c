@@ -208,6 +208,11 @@ static int rsa_export(void *keydata, int selection,
     if (!luna_prov_is_running() || rsa == NULL)
         return 0;
 
+     // REFUSE to export private key - it's in the HSM
+    if ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0) {
+        return 0;  // Cannot export private key from HSM
+    }
+
     if ((selection & RSA_POSSIBLE_SELECTIONS) == 0)
         return 0;
 
@@ -218,11 +223,9 @@ static int rsa_export(void *keydata, int selection,
     if ((selection & OSSL_KEYMGMT_SELECT_OTHER_PARAMETERS) != 0)
         ok = ok && (ossl_rsa_pss_params_30_is_unrestricted(pss_params)
                     || ossl_rsa_pss_params_30_todata(pss_params, tmpl, NULL));
-    if ((selection & OSSL_KEYMGMT_SELECT_KEYPAIR) != 0) {
-        int include_private =
-            selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY ? 1 : 0;
-
-        ok = ok && ossl_rsa_todata(rsa, tmpl, NULL, include_private);
+    if ((selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY) != 0) {
+        // Only export public key components
+        ok = ok && ossl_rsa_todata(rsa, tmpl, NULL, 0);  // 0 = no private
     }
 
     if (!ok
