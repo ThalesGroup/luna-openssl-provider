@@ -605,6 +605,7 @@ static void *oqsx_gen_init(void *provctx, int selection, char *oqs_name,
         gctx->libctx = libctx;
         gctx->cmp_name = NULL;
         gctx->oqs_name = OPENSSL_strdup(oqs_name);
+        LUNA_PRINTF(("setting tls_name = %s\n", tls_name));
         gctx->tls_name = OPENSSL_strdup(tls_name);
         gctx->primitive = primitive;
         gctx->selection = selection;
@@ -696,6 +697,7 @@ static int oqsx_gen_set_params(void *genctx, const OSSL_PARAM params[])
         const char *algname = (char *)p->data;
 
         OPENSSL_free(gctx->tls_name);
+        LUNA_PRINTF(("setting tls_name = %s\n", algname));
         gctx->tls_name = OPENSSL_strdup(algname);
     }
     p = OSSL_PARAM_locate_const(params, OSSL_KDF_PARAM_PROPERTIES);
@@ -793,12 +795,12 @@ static void *p521_dilithium5_gen_init(void *provctx, int selection)
 static void *mldsa44_new_key(void *provctx)
 {
     return oqsx_key_new(PROV_OQS_LIBCTX_OF(provctx), OQS_SIG_alg_ml_dsa_44,
-                        "mldsa44", KEY_TYPE_SIG, NULL, 128, 7);
+            LUNA_TN_ML_DSA_44, KEY_TYPE_SIG, NULL, 128, 7);
 }
 
 static void *mldsa44_gen_init(void *provctx, int selection)
 {
-    return oqsx_gen_init(provctx, selection, OQS_SIG_alg_ml_dsa_44, "mldsa44",
+    return oqsx_gen_init(provctx, selection, OQS_SIG_alg_ml_dsa_44, LUNA_TN_ML_DSA_44,
                          0, 128, 7);
 }
 static void *p256_mldsa44_new_key(void *provctx)
@@ -881,12 +883,12 @@ static void *mldsa44_bp256_gen_init(void *provctx, int selection)
 static void *mldsa65_new_key(void *provctx)
 {
     return oqsx_key_new(PROV_OQS_LIBCTX_OF(provctx), OQS_SIG_alg_ml_dsa_65,
-                        "mldsa65", KEY_TYPE_SIG, NULL, 192, 15);
+            LUNA_TN_ML_DSA_65, KEY_TYPE_SIG, NULL, 192, 15);
 }
 
 static void *mldsa65_gen_init(void *provctx, int selection)
 {
-    return oqsx_gen_init(provctx, selection, OQS_SIG_alg_ml_dsa_65, "mldsa65",
+    return oqsx_gen_init(provctx, selection, OQS_SIG_alg_ml_dsa_65, LUNA_TN_ML_DSA_65,
                          0, 192, 15);
 }
 static void *p384_mldsa65_new_key(void *provctx)
@@ -958,12 +960,12 @@ static void *mldsa65_ed25519_gen_init(void *provctx, int selection)
 static void *mldsa87_new_key(void *provctx)
 {
     return oqsx_key_new(PROV_OQS_LIBCTX_OF(provctx), OQS_SIG_alg_ml_dsa_87,
-                        "mldsa87", KEY_TYPE_SIG, NULL, 256, 22);
+            LUNA_TN_ML_DSA_87, KEY_TYPE_SIG, NULL, 256, 22);
 }
 
 static void *mldsa87_gen_init(void *provctx, int selection)
 {
-    return oqsx_gen_init(provctx, selection, OQS_SIG_alg_ml_dsa_87, "mldsa87",
+    return oqsx_gen_init(provctx, selection, OQS_SIG_alg_ml_dsa_87, LUNA_TN_ML_DSA_87,
                          0, 256, 22);
 }
 static void *p521_mldsa87_new_key(void *provctx)

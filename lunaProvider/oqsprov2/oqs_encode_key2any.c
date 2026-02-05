@@ -26,6 +26,8 @@
 #include <openssl/asn1t.h>
 #include <openssl/types.h>
 
+#include "../luna_prov_minimal.h"
+
 #ifdef NDEBUG
 #    define OQS_ENC_PRINTF(a)
 #    define OQS_ENC_PRINTF2(a, b)
@@ -471,7 +473,10 @@ static int prepare_oqsx_params(const void *oqsxkey, int nid, int save,
         "OQS ENC provider: prepare_oqsx_params called with nid %d (tlsname: %s)\n",
         nid, k->tls_name);
 
-    if (k->tls_name && OBJ_sn2nid(k->tls_name) != nid) {
+    const char *sn = luna_short_name(k->tls_name);
+    int nid2 = OBJ_sn2nid(sn);
+    LUNA_PRINTF(("sn = %s, nid2 = %d\n", sn, nid2));
+    if (sn && nid2 != nid) {
         ERR_raise(ERR_LIB_USER, OQSPROV_R_INVALID_KEY);
         return 0;
     }
@@ -1203,8 +1208,8 @@ static int oqsx_pki_priv_to_der(const void *vxkey, unsigned char **pder)
 #define p521_dilithium5_input_type               "p521_dilithium5"
 #define p521_dilithium5_pem_type                 "p521_dilithium5"
 #define mldsa44_evp_type                         0
-#define mldsa44_input_type                       "mldsa44"
-#define mldsa44_pem_type                         "mldsa44"
+#define mldsa44_input_type                       LUNA_EN_ML_DSA_44
+#define mldsa44_pem_type                         LUNA_EN_ML_DSA_44
 #define p256_mldsa44_evp_type                    0
 #define p256_mldsa44_input_type                  "p256_mldsa44"
 #define p256_mldsa44_pem_type                    "p256_mldsa44"
@@ -1227,8 +1232,8 @@ static int oqsx_pki_priv_to_der(const void *vxkey, unsigned char **pder)
 #define mldsa44_bp256_input_type                 "mldsa44_bp256"
 #define mldsa44_bp256_pem_type                   "mldsa44_bp256"
 #define mldsa65_evp_type                         0
-#define mldsa65_input_type                       "mldsa65"
-#define mldsa65_pem_type                         "mldsa65"
+#define mldsa65_input_type                       LUNA_EN_ML_DSA_65
+#define mldsa65_pem_type                         LUNA_EN_ML_DSA_65
 #define p384_mldsa65_evp_type                    0
 #define p384_mldsa65_input_type                  "p384_mldsa65"
 #define p384_mldsa65_pem_type                    "p384_mldsa65"
@@ -1248,8 +1253,8 @@ static int oqsx_pki_priv_to_der(const void *vxkey, unsigned char **pder)
 #define mldsa65_ed25519_input_type               "mldsa65_ed25519"
 #define mldsa65_ed25519_pem_type                 "mldsa65_ed25519"
 #define mldsa87_evp_type                         0
-#define mldsa87_input_type                       "mldsa87"
-#define mldsa87_pem_type                         "mldsa87"
+#define mldsa87_input_type                       LUNA_EN_ML_DSA_87
+#define mldsa87_pem_type                         LUNA_EN_ML_DSA_87
 #define p521_mldsa87_evp_type                    0
 #define p521_mldsa87_input_type                  "p521_mldsa87"
 #define p521_mldsa87_pem_type                    "p521_mldsa87"
@@ -1460,7 +1465,8 @@ static int key2any_encode(struct key2any_ctx_st *ctx, OSSL_CORE_BIO *cout,
                           i2d_of_void *key2der)
 {
     int ret = 0;
-    int type = OBJ_sn2nid(typestr);
+    const char *sn = luna_short_name(typestr);
+    int type = OBJ_sn2nid(sn);
     //OQSX_KEY *oqsk = (OQSX_KEY *)key;
 
     OQS_ENC_PRINTF3(
@@ -1469,6 +1475,7 @@ static int key2any_encode(struct key2any_ctx_st *ctx, OSSL_CORE_BIO *cout,
     OQS_ENC_PRINTF2("OQS ENC provider: key2any_encode called with pemname %s\n",
                     pemname);
 
+    LUNA_PRINTF(("key = 0x%p, type = %d, sn = %s\n", key, type, sn));
     if (key == NULL || type <= 0) {
         ERR_raise(ERR_LIB_USER, ERR_R_PASSED_NULL_PARAMETER);
     } else if (writer != NULL) {

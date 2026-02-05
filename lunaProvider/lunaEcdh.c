@@ -106,6 +106,9 @@ int luna_ecdh_init(void *vpecdhctx, void *vecdh, const OSSL_PARAM params[])
             || !EC_KEY_up_ref(vecdh))
         return 0;
 
+#if 0
+    // FIXME:FIXME: the proper solution is to never hook up the provider entry point to receive this request in the first place; i.e.,
+    // a runtime decision, based on one or more config items (this may get complicated for hybrid algorithms).
     /* Check if this is an HSM key - reject software/ephemeral keys */
     const int rc_check = luna_prov_ec_check_private(vecdh);
     if (luna_prov_check_is_software(rc_check)) {
@@ -119,6 +122,7 @@ int luna_ecdh_init(void *vpecdhctx, void *vecdh, const OSSL_PARAM params[])
         /* Error case - malformed key */
         return 0;
     }
+#endif
 
     EC_KEY_free(pecdhctx->k);
     pecdhctx->k = vecdh;

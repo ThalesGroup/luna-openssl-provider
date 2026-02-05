@@ -22,7 +22,7 @@
 
 /* luna provider details as of toolkit 1.6 */
 #define LUNA_PROV_NAME_SZ "Thales Luna Provider"
-#define LUNA_PROV_VERSION_SZ "1.7.3"
+#define LUNA_PROV_VERSION_SZ "1.7.5.0"
 #define LUNA_PROV_SZ "lunaprov"
 #define LUNA_PROV_CONCAT_SZ(a_, b_) a_ b_
 
@@ -221,8 +221,8 @@ const char *oqs_oid_alg_list[OQS_OID_CNT] = {
     "dilithium5",
     "1.3.9999.2.7.4",
     "p521_dilithium5",
-    "2.16.840.1.101.3.4.3.17",
-    "mldsa44",
+    LUNA_OID_ML_DSA_44,
+    LUNA_SN_ML_DSA_44,
     "1.3.9999.7.1",
     "p256_mldsa44",
     "1.3.9999.7.2",
@@ -237,8 +237,8 @@ const char *oqs_oid_alg_list[OQS_OID_CNT] = {
     "mldsa44_p256",
     "2.16.840.1.114027.80.8.1.5",
     "mldsa44_bp256",
-    "2.16.840.1.101.3.4.3.18",
-    "mldsa65",
+    LUNA_OID_ML_DSA_65,
+    LUNA_SN_ML_DSA_65,
     "1.3.9999.7.3",
     "p384_mldsa65",
     "2.16.840.1.114027.80.8.1.6",
@@ -251,8 +251,8 @@ const char *oqs_oid_alg_list[OQS_OID_CNT] = {
     "mldsa65_bp256",
     "2.16.840.1.114027.80.8.1.10",
     "mldsa65_ed25519",
-    "2.16.840.1.101.3.4.3.19",
-    "mldsa87",
+    LUNA_OID_ML_DSA_87,
+    LUNA_SN_ML_DSA_87,
     "1.3.9999.7.4",
     "p521_mldsa87",
     "2.16.840.1.114027.80.8.1.11",
@@ -962,7 +962,7 @@ static const OSSL_ALGORITHM luna_signature[] = {
     SIGALG("p521_dilithium5", 256, oqs_signature_functions),
 #endif
 #ifdef OQS_ENABLE_SIG_ml_dsa_44
-    SIGALG("mldsa44", 128, oqs_signature_functions),
+    SIGALG(LUNA_PROV_NAMES_ML_DSA_44, 128, oqs_signature_functions),
     SIGALG("p256_mldsa44", 128, oqs_signature_functions),
     SIGALG("rsa3072_mldsa44", 128, oqs_signature_functions),
     SIGALG("mldsa44_pss2048", 112, oqs_signature_functions),
@@ -972,7 +972,7 @@ static const OSSL_ALGORITHM luna_signature[] = {
     SIGALG("mldsa44_bp256", 256, oqs_signature_functions),
 #endif
 #ifdef OQS_ENABLE_SIG_ml_dsa_65
-    SIGALG("mldsa65", 192, oqs_signature_functions),
+    SIGALG(LUNA_PROV_NAMES_ML_DSA_65, 192, oqs_signature_functions),
     SIGALG("p384_mldsa65", 192, oqs_signature_functions),
     SIGALG("mldsa65_pss3072", 128, oqs_signature_functions),
     SIGALG("mldsa65_rsa3072", 128, oqs_signature_functions),
@@ -981,7 +981,7 @@ static const OSSL_ALGORITHM luna_signature[] = {
     SIGALG("mldsa65_ed25519", 128, oqs_signature_functions),
 #endif
 #ifdef OQS_ENABLE_SIG_ml_dsa_87
-    SIGALG("mldsa87", 256, oqs_signature_functions),
+    SIGALG(LUNA_PROV_NAMES_ML_DSA_87, 256, oqs_signature_functions),
     SIGALG("p521_mldsa87", 256, oqs_signature_functions),
     SIGALG("mldsa87_p384", 192, oqs_signature_functions),
     SIGALG("mldsa87_bp384", 384, oqs_signature_functions),
@@ -1120,7 +1120,7 @@ static const OSSL_ALGORITHM luna_keymgmt[] = {
     SIGALG("p521_dilithium5", 256, oqs_p521_dilithium5_keymgmt_functions),
 #endif
 #ifdef OQS_ENABLE_SIG_ml_dsa_44
-    SIGALG("mldsa44", 128, oqs_mldsa44_keymgmt_functions),
+    SIGALG(LUNA_PROV_NAMES_ML_DSA_44, 128, oqs_mldsa44_keymgmt_functions),
     SIGALG("p256_mldsa44", 128, oqs_p256_mldsa44_keymgmt_functions),
     SIGALG("rsa3072_mldsa44", 128, oqs_rsa3072_mldsa44_keymgmt_functions),
     SIGALG("mldsa44_pss2048", 112, oqs_mldsa44_pss2048_keymgmt_functions),
@@ -1130,7 +1130,7 @@ static const OSSL_ALGORITHM luna_keymgmt[] = {
     SIGALG("mldsa44_bp256", 256, oqs_mldsa44_bp256_keymgmt_functions),
 #endif
 #ifdef OQS_ENABLE_SIG_ml_dsa_65
-    SIGALG("mldsa65", 192, oqs_mldsa65_keymgmt_functions),
+    SIGALG(LUNA_PROV_NAMES_ML_DSA_65, 192, oqs_mldsa65_keymgmt_functions),
     SIGALG("p384_mldsa65", 192, oqs_p384_mldsa65_keymgmt_functions),
     SIGALG("mldsa65_pss3072", 128, oqs_mldsa65_pss3072_keymgmt_functions),
     SIGALG("mldsa65_rsa3072", 128, oqs_mldsa65_rsa3072_keymgmt_functions),
@@ -1139,7 +1139,7 @@ static const OSSL_ALGORITHM luna_keymgmt[] = {
     SIGALG("mldsa65_ed25519", 128, oqs_mldsa65_ed25519_keymgmt_functions),
 #endif
 #ifdef OQS_ENABLE_SIG_ml_dsa_87
-    SIGALG("mldsa87", 256, oqs_mldsa87_keymgmt_functions),
+    SIGALG(LUNA_PROV_NAMES_ML_DSA_87, 256, oqs_mldsa87_keymgmt_functions),
     SIGALG("p521_mldsa87", 256, oqs_p521_mldsa87_keymgmt_functions),
     SIGALG("mldsa87_p384", 192, oqs_mldsa87_p384_keymgmt_functions),
     SIGALG("mldsa87_bp384", 384, oqs_mldsa87_bp384_keymgmt_functions),
@@ -1503,6 +1503,7 @@ int luna_provider_init(const OSSL_CORE_HANDLE *handle,
                        oqs_oid_alg_list[i + 1]);
         }
 
+        /* NOTE: openssl 3.5: update internal table of NIDs, check for algorithm naming consistency */
         if (!oqs_set_nid((char *)oqs_oid_alg_list[i + 1],
                          OBJ_sn2nid(oqs_oid_alg_list[i + 1]))) {
             ERR_raise(ERR_LIB_USER, OQSPROV_R_OBJ_CREATE_ERR);

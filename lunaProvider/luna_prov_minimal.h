@@ -129,4 +129,45 @@ int luna_prov_get_DelegateHwPqcKemEncapToSw(void);
 int LUNA_PARAM_set_encoded_public_key(void *oqsxk, OSSL_PARAM *p, const void *val, size_t len);
 int LUNA_PARAM_get_encoded_public_key(void *oqsxk, const OSSL_PARAM *p, void **val, size_t max_len, size_t *used_len);
 
+/* algorithm names, according to openssl (as of openssl 3.5.1) */
+#define LUNA_SN_ML_DSA_44 "id-ml-dsa-44" /* short name (aka internal name) */
+#define LUNA_LN_ML_DSA_44 "ML-DSA-44" /* long name (aka external name) */
+#define LUNA_ZN_ML_DSA_44 "MLDSA44" /* alternate external name */
+#define LUNA_TN_ML_DSA_44 "mldsa44" /* IANA name (aka TLS name) */
+#define LUNA_OID_ML_DSA_44 "2.16.840.1.101.3.4.3.17" /* oid name */
+
+#define LUNA_SN_ML_DSA_65 "id-ml-dsa-65"
+#define LUNA_LN_ML_DSA_65 "ML-DSA-65"
+#define LUNA_ZN_ML_DSA_65 "MLDSA65"
+#define LUNA_TN_ML_DSA_65 "mldsa65"
+#define LUNA_OID_ML_DSA_65 "2.16.840.1.101.3.4.3.18"
+
+#define LUNA_SN_ML_DSA_87 "id-ml-dsa-87"
+#define LUNA_LN_ML_DSA_87 "ML-DSA-87"
+#define LUNA_ZN_ML_DSA_87 "MLDSA87"
+#define LUNA_TN_ML_DSA_87 "mldsa87"
+#define LUNA_OID_ML_DSA_87 "2.16.840.1.101.3.4.3.19"
+
+/* concatenate names: long + alternate + oid + short */
+#define LUNA_PROV_NAMES_ML_DSA_XX(xx) LUNA_LN_ML_DSA_##xx ":" LUNA_ZN_ML_DSA_##xx ":" LUNA_OID_ML_DSA_##xx ":" LUNA_SN_ML_DSA_##xx
+#define LUNA_PROV_NAMES_ML_DSA_44 LUNA_PROV_NAMES_ML_DSA_XX(44)
+#define LUNA_PROV_NAMES_ML_DSA_65 LUNA_PROV_NAMES_ML_DSA_XX(65)
+#define LUNA_PROV_NAMES_ML_DSA_87 LUNA_PROV_NAMES_ML_DSA_XX(87)
+
+#if 0
+/* name to be used for encoding/decoding (legacy is TLS name) */
+#define LUNA_EN_ML_DSA_44 LUNA_TN_ML_DSA_44
+#define LUNA_EN_ML_DSA_65 LUNA_TN_ML_DSA_65
+#define LUNA_EN_ML_DSA_87 LUNA_TN_ML_DSA_87
+#else
+/* should be long name instead */
+#define LUNA_EN_ML_DSA_44 LUNA_LN_ML_DSA_44
+#define LUNA_EN_ML_DSA_65 LUNA_LN_ML_DSA_65
+#define LUNA_EN_ML_DSA_87 LUNA_LN_ML_DSA_87
 #endif
+
+/* translate to short name, if possible */
+const char *luna_short_name(const char *txt);
+
+#endif // _LUNA_PROV_MINIMAL_H
+

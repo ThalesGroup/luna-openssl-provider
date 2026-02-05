@@ -141,7 +141,7 @@ static oqs_nid_name_t nid_names[NID_TABLE_LEN] = {
     {0, "p384_dilithium3", OQS_SIG_alg_dilithium_3, KEY_TYPE_HYB_SIG, 192},
     {0, "dilithium5", OQS_SIG_alg_dilithium_5, KEY_TYPE_SIG, 256},
     {0, "p521_dilithium5", OQS_SIG_alg_dilithium_5, KEY_TYPE_HYB_SIG, 256},
-    {0, "mldsa44", OQS_SIG_alg_ml_dsa_44, KEY_TYPE_SIG, 128},
+    {0, LUNA_SN_ML_DSA_44, OQS_SIG_alg_ml_dsa_44, KEY_TYPE_SIG, 128},
     {0, "p256_mldsa44", OQS_SIG_alg_ml_dsa_44, KEY_TYPE_HYB_SIG, 128},
     {0, "rsa3072_mldsa44", OQS_SIG_alg_ml_dsa_44, KEY_TYPE_HYB_SIG, 128},
     {0, "mldsa44_pss2048", OQS_SIG_alg_ml_dsa_44, KEY_TYPE_CMP_SIG, 112},
@@ -149,14 +149,14 @@ static oqs_nid_name_t nid_names[NID_TABLE_LEN] = {
     {0, "mldsa44_ed25519", OQS_SIG_alg_ml_dsa_44, KEY_TYPE_CMP_SIG, 128},
     {0, "mldsa44_p256", OQS_SIG_alg_ml_dsa_44, KEY_TYPE_CMP_SIG, 128},
     {0, "mldsa44_bp256", OQS_SIG_alg_ml_dsa_44, KEY_TYPE_CMP_SIG, 256},
-    {0, "mldsa65", OQS_SIG_alg_ml_dsa_65, KEY_TYPE_SIG, 192},
+    {0, LUNA_SN_ML_DSA_65, OQS_SIG_alg_ml_dsa_65, KEY_TYPE_SIG, 192},
     {0, "p384_mldsa65", OQS_SIG_alg_ml_dsa_65, KEY_TYPE_HYB_SIG, 192},
     {0, "mldsa65_pss3072", OQS_SIG_alg_ml_dsa_65, KEY_TYPE_CMP_SIG, 128},
     {0, "mldsa65_rsa3072", OQS_SIG_alg_ml_dsa_65, KEY_TYPE_CMP_SIG, 128},
     {0, "mldsa65_p256", OQS_SIG_alg_ml_dsa_65, KEY_TYPE_CMP_SIG, 128},
     {0, "mldsa65_bp256", OQS_SIG_alg_ml_dsa_65, KEY_TYPE_CMP_SIG, 256},
     {0, "mldsa65_ed25519", OQS_SIG_alg_ml_dsa_65, KEY_TYPE_CMP_SIG, 128},
-    {0, "mldsa87", OQS_SIG_alg_ml_dsa_87, KEY_TYPE_SIG, 256},
+    {0, LUNA_SN_ML_DSA_87, OQS_SIG_alg_ml_dsa_87, KEY_TYPE_SIG, 256},
     {0, "p521_mldsa87", OQS_SIG_alg_ml_dsa_87, KEY_TYPE_HYB_SIG, 256},
     {0, "mldsa87_p384", OQS_SIG_alg_ml_dsa_87, KEY_TYPE_CMP_SIG, 192},
     {0, "mldsa87_bp384", OQS_SIG_alg_ml_dsa_87, KEY_TYPE_CMP_SIG, 384},
@@ -202,6 +202,7 @@ static oqs_nid_name_t nid_names[NID_TABLE_LEN] = {
 int oqs_set_nid(char *tlsname, int nid)
 {
     int i;
+    LUNA_PRINTF(("tlsname = %s, nid = %d\n", tlsname, nid));
     for (i = 0; i < NID_TABLE_LEN; i++) {
         if (!strcmp(nid_names[i].tlsname, tlsname)) {
             nid_names[i].nid = nid;
@@ -1569,6 +1570,7 @@ OQSX_KEY *oqsx_key_new(OSSL_LIB_CTX *libctx, char *oqs_name, char *tls_name,
 
     ret->libctx = libctx;
     ret->references = 1;
+    LUNA_PRINTF(("setting tls_name = %s\n", tls_name));
     ret->tls_name = OPENSSL_strdup(tls_name);
     ON_ERR_GOTO(!ret->tls_name, err);
     ret->bit_security = bit_security;

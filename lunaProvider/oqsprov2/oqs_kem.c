@@ -107,6 +107,7 @@ static int oqs_kem_decaps_init(void *vpkemctx, void *vkem,
 }
 
 // OPTIMIZATION: estimate buffer size
+// NOTE: we need this because C_EncapsulateKey has no pkcs#11 calling convention to query length!?
 #define LUNA_OQS_NO_QUERY_BUFFER_LEN 1
 
 /// Quantum-Safe KEM functions (OQS)
@@ -466,7 +467,7 @@ static int oqs_hyb_kem_encaps(void *vpkemctx, unsigned char *ct, size_t *ctlen,
     {
         // special case of reverse keyshare for KEY_TYPE_ECX_HYB_KEM
         ct1 = ct;
-        ct0 = ct1 + ctLen1;
+        ct0 = ct + ctLen1;
         secret1 = secret;
         secret0 = secret + secretLen1;
     }
@@ -545,10 +546,12 @@ static int oqs_hyb_kem_decaps(void *vpkemctx, unsigned char *secret,
     ret = oqs_evp_kem_decaps_keyslot(vpkemctx, secret0, &secretLen0, ct0,
                                      ctLen0, 0);
     oqs_debug_secret("oqs_hyb_kem_decaps:secret0:", ret, secret0, &secretLen0);
+    oqs_debug_secret("oqs_hyb_kem_decaps:ct0:", ret, ct0, &ctLen0);
     ON_ERR_SET_GOTO(ret <= 0, ret, OQS_ERROR, err);
     ret = oqs_qs_kem_decaps_keyslot(vpkemctx, secret1, &secretLen1, ct1, ctLen1,
                                     1);
     oqs_debug_secret("oqs_hyb_kem_decaps:secret1:", ret, secret1, &secretLen1);
+    oqs_debug_secret("oqs_hyb_kem_decaps:ct1:", ret, ct1, &ctLen1);
     ON_ERR_SET_GOTO(ret <= 0, ret, OQS_ERROR, err);
 
 err:

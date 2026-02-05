@@ -163,7 +163,7 @@ static int oqs_group_capability(OSSL_CALLBACK *cb, void *arg)
         }
 
 static const OSSL_PARAM oqs_param_sigalg_list[][12] = {
-
+    // TODO: why are we adding groups but no signature algorithms?
 };
 
 static int oqs_sigalg_capability(OSSL_CALLBACK *cb, void *arg)

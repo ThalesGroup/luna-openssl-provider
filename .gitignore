@@ -13,3 +13,4 @@ gem-samples/engineperf/engineperf
 gem-samples/sautil/sautil
 lunaProvider/makefile
 luna.tar.gz
+*.keep.*

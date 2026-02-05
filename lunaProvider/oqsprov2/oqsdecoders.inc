@@ -255,8 +255,8 @@ DECODER_w_structure("frodo640aes", der, PrivateKeyInfo, frodo640aes),
                         p521_dilithium5),
 #endif
 #ifdef OQS_ENABLE_SIG_ml_dsa_44
-    DECODER_w_structure("mldsa44", der, PrivateKeyInfo, mldsa44),
-    DECODER_w_structure("mldsa44", der, SubjectPublicKeyInfo, mldsa44),
+    DECODER_w_structure(LUNA_EN_ML_DSA_44, der, PrivateKeyInfo, mldsa44),
+    DECODER_w_structure(LUNA_EN_ML_DSA_44, der, SubjectPublicKeyInfo, mldsa44),
     DECODER_w_structure("p256_mldsa44", der, PrivateKeyInfo, p256_mldsa44),
     DECODER_w_structure("p256_mldsa44", der, SubjectPublicKeyInfo,
                         p256_mldsa44),
@@ -284,8 +284,8 @@ DECODER_w_structure("frodo640aes", der, PrivateKeyInfo, frodo640aes),
                         mldsa44_bp256),
 #endif
 #ifdef OQS_ENABLE_SIG_ml_dsa_65
-    DECODER_w_structure("mldsa65", der, PrivateKeyInfo, mldsa65),
-    DECODER_w_structure("mldsa65", der, SubjectPublicKeyInfo, mldsa65),
+    DECODER_w_structure(LUNA_EN_ML_DSA_65, der, PrivateKeyInfo, mldsa65),
+    DECODER_w_structure(LUNA_EN_ML_DSA_65, der, SubjectPublicKeyInfo, mldsa65),
     DECODER_w_structure("p384_mldsa65", der, PrivateKeyInfo, p384_mldsa65),
     DECODER_w_structure("p384_mldsa65", der, SubjectPublicKeyInfo,
                         p384_mldsa65),
@@ -309,8 +309,8 @@ DECODER_w_structure("frodo640aes", der, PrivateKeyInfo, frodo640aes),
                         mldsa65_ed25519),
 #endif
 #ifdef OQS_ENABLE_SIG_ml_dsa_87
-    DECODER_w_structure("mldsa87", der, PrivateKeyInfo, mldsa87),
-    DECODER_w_structure("mldsa87", der, SubjectPublicKeyInfo, mldsa87),
+    DECODER_w_structure(LUNA_EN_ML_DSA_87, der, PrivateKeyInfo, mldsa87),
+    DECODER_w_structure(LUNA_EN_ML_DSA_87, der, SubjectPublicKeyInfo, mldsa87),
     DECODER_w_structure("p521_mldsa87", der, PrivateKeyInfo, p521_mldsa87),
     DECODER_w_structure("p521_mldsa87", der, SubjectPublicKeyInfo,
                         p521_mldsa87),

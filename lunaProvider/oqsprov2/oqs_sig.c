@@ -80,7 +80,9 @@ static int get_aid(unsigned char **oidbuf, const char *tls_name)
     X509_ALGOR *algor = X509_ALGOR_new();
     int aidlen = 0;
 
-    X509_ALGOR_set0(algor, OBJ_txt2obj(tls_name, 0), V_ASN1_UNDEF, NULL);
+    const char *txt = luna_short_name(tls_name);
+    LUNA_PRINTF(("tls_name = %s, txt = %s\n", tls_name, txt));
+    X509_ALGOR_set0(algor, OBJ_txt2obj(txt, 0), V_ASN1_UNDEF, NULL);
 
     aidlen = i2d_X509_ALGOR(algor, oidbuf);
     X509_ALGOR_free(algor);

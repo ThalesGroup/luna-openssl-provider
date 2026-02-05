@@ -475,6 +475,7 @@ static int file_load_construct(OSSL_DECODER_INSTANCE *decoder_inst,
 
     /* call ossl_store_handle_load_result (for example) */
     int rc_cb = data->object_cb(params, data->object_cbarg);
+    LUNA_PRINTF(("rc_cb = %d\n", rc_cb));
     if (rc_cb == 0)
         return 0;
 
@@ -491,6 +492,7 @@ static int file_load_construct(OSSL_DECODER_INSTANCE *decoder_inst,
         if (OSSL_STORE_INFO_get_type(info) == OSSL_STORE_INFO_PKEY) {
             EVP_PKEY *pk = OSSL_STORE_INFO_get0_PKEY(info);
             const int pktype = EVP_PKEY_get_id(pk);
+            LUNA_PRINTF(("pktype = %d\n", pktype));
 #ifdef LUNA_OQS
             if (pktype == EVP_PKEY_ED25519 || pktype == EVP_PKEY_ED448
                     || pktype == EVP_PKEY_X25519 || pktype == EVP_PKEY_X448) {

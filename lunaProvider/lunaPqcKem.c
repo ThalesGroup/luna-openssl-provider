@@ -168,7 +168,6 @@ static CK_RV LunaPqcKemEncap(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyi
                 rv = P11->C_DeriveKey(session, &encapMech, publicObjectHandle,
                         encapTemplate, DIM(encapTemplate), &encapObjectHandle);
             } else {
-                //rv = CKR_FUNCTION_NOT_SUPPORTED;
                 rv = p11.ext.CA_EncapsulateKey(session, &encapMech,
                         publicObjectHandle,
                         encapTemplate, DIM(encapTemplate),
@@ -204,7 +203,6 @@ static CK_RV LunaPqcKemEncap(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyi
                 rv = P11->C_DeriveKey(session, &encapMech, publicObjectHandle,
                         encapTemplate, DIM(encapTemplate), &encapObjectHandle);
             } else {
-                //rv = CKR_FUNCTION_NOT_SUPPORTED;
                 rv = p11.ext.CA_EncapsulateKey(session, &encapMech,
                         publicObjectHandle,
                         encapTemplate, DIM(encapTemplate),
