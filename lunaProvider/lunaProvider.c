@@ -22,7 +22,7 @@
 
 /* luna provider details as of toolkit 1.6 */
 #define LUNA_PROV_NAME_SZ "Thales Luna Provider"
-#define LUNA_PROV_VERSION_SZ "1.7.5.0"
+#define LUNA_PROV_VERSION_SZ "1.7.5.1"
 #define LUNA_PROV_SZ "lunaprov"
 #define LUNA_PROV_CONCAT_SZ(a_, b_) a_ b_
 
@@ -1106,6 +1106,7 @@ static const OSSL_ALGORITHM luna_keymgmt[] = {
 #endif
 
 #ifdef LUNA_OQS
+#ifdef LUNA_OQS_dilithium
 #ifdef OQS_ENABLE_SIG_dilithium_2
     SIGALG("dilithium2", 128, oqs_dilithium2_keymgmt_functions),
     SIGALG("p256_dilithium2", 128, oqs_p256_dilithium2_keymgmt_functions),
@@ -1119,6 +1120,7 @@ static const OSSL_ALGORITHM luna_keymgmt[] = {
     SIGALG("dilithium5", 256, oqs_dilithium5_keymgmt_functions),
     SIGALG("p521_dilithium5", 256, oqs_p521_dilithium5_keymgmt_functions),
 #endif
+#endif // LUNA_OQS_dilithium
 #ifdef OQS_ENABLE_SIG_ml_dsa_44
     SIGALG(LUNA_PROV_NAMES_ML_DSA_44, 128, oqs_mldsa44_keymgmt_functions),
     SIGALG("p256_mldsa44", 128, oqs_p256_mldsa44_keymgmt_functions),
@@ -1485,6 +1487,13 @@ int luna_provider_init(const OSSL_CORE_HANDLE *handle,
 #ifdef LUNA_OQS
     // insert all OIDs to the global objects list
     for (i = 0; i < OQS_OID_CNT; i += 2) {
+
+#ifndef LUNA_OQS_dilithium
+        // skip over deprecated algorithms
+        if (strstr(oqs_oid_alg_list[i + 1], "dilithium") != NULL)
+            continue;
+#endif // LUNA_OQS_dilithium
+
         if (!c_obj_create(handle, oqs_oid_alg_list[i], oqs_oid_alg_list[i + 1],
                           oqs_oid_alg_list[i + 1])) {
             ERR_raise(ERR_LIB_USER, OQSPROV_R_OBJ_CREATE_ERR);

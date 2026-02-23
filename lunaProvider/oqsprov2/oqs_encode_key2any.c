@@ -2400,6 +2400,7 @@ MAKE_ENCODER(_ecp, p521_hqc256, oqsx, SubjectPublicKeyInfo, pem);
 MAKE_TEXT_ENCODER(_ecp, p521_hqc256);
 #endif /* OQS_KEM_ENCODERS */
 
+#ifdef LUNA_OQS_dilithium
 MAKE_ENCODER(, dilithium2, oqsx, EncryptedPrivateKeyInfo, der);
 MAKE_ENCODER(, dilithium2, oqsx, EncryptedPrivateKeyInfo, pem);
 MAKE_ENCODER(, dilithium2, oqsx, PrivateKeyInfo, der);
@@ -2449,6 +2450,7 @@ MAKE_ENCODER(, p521_dilithium5, oqsx, PrivateKeyInfo, pem);
 MAKE_ENCODER(, p521_dilithium5, oqsx, SubjectPublicKeyInfo, der);
 MAKE_ENCODER(, p521_dilithium5, oqsx, SubjectPublicKeyInfo, pem);
 MAKE_TEXT_ENCODER(, p521_dilithium5);
+#endif // LUNA_OQS_dilithium
 MAKE_ENCODER(, mldsa44, oqsx, EncryptedPrivateKeyInfo, der);
 MAKE_ENCODER(, mldsa44, oqsx, EncryptedPrivateKeyInfo, pem);
 MAKE_ENCODER(, mldsa44, oqsx, PrivateKeyInfo, der);

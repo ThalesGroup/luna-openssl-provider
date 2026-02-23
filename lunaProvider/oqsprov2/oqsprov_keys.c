@@ -60,10 +60,16 @@ static int lunax_oqsx_key_gen_oqs_ndx(OQSX_KEY *key, int ndx_in, int is_kem, int
 
 ///// OQS_TEMPLATE_FRAGMENT_OQSNAMES_START
 
-#ifdef OQS_KEM_ENCODERS
-#    define NID_TABLE_LEN 101
+#ifdef LUNA_OQS_dilithium
+#define NID_TABLE_SUBTRACT 0
 #else
-#    define NID_TABLE_LEN 48
+#define NID_TABLE_SUBTRACT 7
+#endif
+
+#ifdef OQS_KEM_ENCODERS
+#    define NID_TABLE_LEN (101 - NID_TABLE_SUBTRACT)
+#else
+#    define NID_TABLE_LEN (48 - NID_TABLE_SUBTRACT)
 #endif /* OQS_KEM_ENCODERS */
 
 static oqs_nid_name_t nid_names[NID_TABLE_LEN] = {
@@ -134,6 +140,7 @@ static oqs_nid_name_t nid_names[NID_TABLE_LEN] = {
     {0, "p521_hqc256", OQS_KEM_alg_hqc_256, KEY_TYPE_ECP_HYB_KEM, 256},
 
 #endif /* OQS_KEM_ENCODERS */
+#ifdef LUNA_OQS_dilithium
     {0, "dilithium2", OQS_SIG_alg_dilithium_2, KEY_TYPE_SIG, 128},
     {0, "p256_dilithium2", OQS_SIG_alg_dilithium_2, KEY_TYPE_HYB_SIG, 128},
     {0, "rsa3072_dilithium2", OQS_SIG_alg_dilithium_2, KEY_TYPE_HYB_SIG, 128},
@@ -141,6 +148,7 @@ static oqs_nid_name_t nid_names[NID_TABLE_LEN] = {
     {0, "p384_dilithium3", OQS_SIG_alg_dilithium_3, KEY_TYPE_HYB_SIG, 192},
     {0, "dilithium5", OQS_SIG_alg_dilithium_5, KEY_TYPE_SIG, 256},
     {0, "p521_dilithium5", OQS_SIG_alg_dilithium_5, KEY_TYPE_HYB_SIG, 256},
+#endif // LUNA_OQS_dilithium (also related to NID_TABLE_SUBTRACT)
     {0, LUNA_SN_ML_DSA_44, OQS_SIG_alg_ml_dsa_44, KEY_TYPE_SIG, 128},
     {0, "p256_mldsa44", OQS_SIG_alg_ml_dsa_44, KEY_TYPE_HYB_SIG, 128},
     {0, "rsa3072_mldsa44", OQS_SIG_alg_ml_dsa_44, KEY_TYPE_HYB_SIG, 128},

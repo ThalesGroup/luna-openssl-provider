@@ -714,6 +714,7 @@ static int oqsx_gen_set_params(void *genctx, const OSSL_PARAM params[])
 }
 
 ///// OQS_TEMPLATE_FRAGMENT_KEYMGMT_CONSTRUCTORS_START
+#ifdef LUNA_OQS_dilithium
 static void *dilithium2_new_key(void *provctx)
 {
     return oqsx_key_new(PROV_OQS_LIBCTX_OF(provctx), OQS_SIG_alg_dilithium_2,
@@ -791,6 +792,7 @@ static void *p521_dilithium5_gen_init(void *provctx, int selection)
     return oqsx_gen_init(provctx, selection, OQS_SIG_alg_dilithium_5,
                          "p521_dilithium5", KEY_TYPE_HYB_SIG, 256, 6);
 }
+#endif // LUNA_OQS_dilithium
 
 static void *mldsa44_new_key(void *provctx)
 {
@@ -1426,6 +1428,7 @@ static void *rsa3072_sphincsshake128fsimple_gen_init(void *provctx,
         {0, NULL}};
 
 ///// OQS_TEMPLATE_FRAGMENT_KEYMGMT_FUNCTIONS_START
+#ifdef LUNA_OQS_dilithium
 MAKE_SIG_KEYMGMT_FUNCTIONS(dilithium2)
 MAKE_SIG_KEYMGMT_FUNCTIONS(p256_dilithium2)
 MAKE_SIG_KEYMGMT_FUNCTIONS(rsa3072_dilithium2)
@@ -1433,6 +1436,7 @@ MAKE_SIG_KEYMGMT_FUNCTIONS(dilithium3)
 MAKE_SIG_KEYMGMT_FUNCTIONS(p384_dilithium3)
 MAKE_SIG_KEYMGMT_FUNCTIONS(dilithium5)
 MAKE_SIG_KEYMGMT_FUNCTIONS(p521_dilithium5)
+#endif // LUNA_OQS_dilithium
 MAKE_SIG_KEYMGMT_FUNCTIONS(mldsa44)
 MAKE_SIG_KEYMGMT_FUNCTIONS(p256_mldsa44)
 MAKE_SIG_KEYMGMT_FUNCTIONS(rsa3072_mldsa44)

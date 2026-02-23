@@ -2050,6 +2050,7 @@ extern const OSSL_DISPATCH
 ///// OQS_TEMPLATE_FRAGMENT_ENDECODER_FUNCTIONS_END
 
 ///// OQS_TEMPLATE_FRAGMENT_ALG_FUNCTIONS_START
+#ifdef LUNA_OQS_dilithium
 extern const OSSL_DISPATCH oqs_dilithium2_keymgmt_functions[];
 extern const OSSL_DISPATCH oqs_p256_dilithium2_keymgmt_functions[];
 extern const OSSL_DISPATCH oqs_rsa3072_dilithium2_keymgmt_functions[];
@@ -2057,6 +2058,7 @@ extern const OSSL_DISPATCH oqs_dilithium3_keymgmt_functions[];
 extern const OSSL_DISPATCH oqs_p384_dilithium3_keymgmt_functions[];
 extern const OSSL_DISPATCH oqs_dilithium5_keymgmt_functions[];
 extern const OSSL_DISPATCH oqs_p521_dilithium5_keymgmt_functions[];
+#endif // LUNA_OQS_dilithium
 extern const OSSL_DISPATCH oqs_mldsa44_keymgmt_functions[];
 extern const OSSL_DISPATCH oqs_p256_mldsa44_keymgmt_functions[];
 extern const OSSL_DISPATCH oqs_rsa3072_mldsa44_keymgmt_functions[];
