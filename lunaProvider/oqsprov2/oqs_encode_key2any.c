@@ -89,16 +89,22 @@ static PKCS8_PRIV_KEY_INFO *key_to_p8info(const void *key, int key_nid,
     int derlen;
     /* The final PKCS#8 info */
     PKCS8_PRIV_KEY_INFO *p8info = NULL;
+    int ok = 0;
 
     OQS_ENC_PRINTF("OQS ENC provider: key_to_p8info called\n");
 
-    if ((p8info = PKCS8_PRIV_KEY_INFO_new()) == NULL
-        || (derlen = k2d(key, &der)) <= 0
-        || !PKCS8_pkey_set0(p8info, OBJ_nid2obj(key_nid), 0,
-                            // doesn't work with oqs-openssl:
-                            //  params_type, params,
-                            // does work/interop:
-                            V_ASN1_UNDEF, NULL, der, derlen)) {
+    /* debugger-friendly rewrite */
+    p8info = PKCS8_PRIV_KEY_INFO_new();
+    if ( p8info != NULL ) {
+        derlen = k2d(key, &der);
+        if ( derlen > 0 ) {
+            int rc = PKCS8_pkey_set0(p8info, OBJ_nid2obj(key_nid), 0,
+                    V_ASN1_UNDEF, NULL, der, derlen);
+            ok = (rc == 1);
+        }
+    }
+
+    if (!ok) {
         ERR_raise(ERR_LIB_USER, ERR_R_MALLOC_FAILURE);
         PKCS8_PRIV_KEY_INFO_free(p8info);
         OPENSSL_free(der);
@@ -796,7 +802,8 @@ static int oqsx_pki_priv_to_der(const void *vxkey, unsigned char **pder)
             int nid, version;
             void *pval;
 
-            if ((name = get_cmpname(OBJ_sn2nid(oqsxkey->tls_name), i))
+            const char *sn = luna_short_name(oqsxkey->tls_name);
+            if ((name = get_cmpname(OBJ_sn2nid(sn), i))
                 == NULL) {
                 for (int j = 0; j <= i; j++) {
                     OPENSSL_cleanse(aString[j]->data, aString[j]->length);
@@ -862,7 +869,8 @@ static int oqsx_pki_priv_to_der(const void *vxkey, unsigned char **pder)
                 } else
                     buflen = oqsxkey->privkeylen_cmp[i];
             } else {
-                nid = OBJ_sn2nid(name);
+                const char *sn = luna_short_name(name);
+                nid = OBJ_sn2nid(sn);
                 buflen = oqsxkey->privkeylen_cmp[i] + oqsxkey->pubkeylen_cmp[i];
             }
 
@@ -1790,7 +1798,8 @@ static int oqsx_to_text(BIO *out, const void *key, int selection)
                 char label[200];
                 int i, privlen;
                 for (i = 0; i < okey->numkeys; i++) {
-                    if ((name = get_cmpname(OBJ_sn2nid(okey->tls_name), i))
+                    const char *sn = luna_short_name(okey->tls_name);
+                    if ((name = get_cmpname(OBJ_sn2nid(sn), i))
                         == NULL) {
                         ERR_raise(ERR_LIB_USER, OQSPROV_R_INVALID_KEY);
                         return 0;
@@ -1876,7 +1885,8 @@ static int oqsx_to_text(BIO *out, const void *key, int selection)
                 char label[200];
                 int i;
                 for (i = 0; i < okey->numkeys; i++) {
-                    if ((name = get_cmpname(OBJ_sn2nid(okey->tls_name), i))
+                    const char *sn = luna_short_name(okey->tls_name);
+                    if ((name = get_cmpname(OBJ_sn2nid(sn), i))
                         == NULL) {
                         ERR_raise(ERR_LIB_USER, OQSPROV_R_INVALID_KEY);
                         return 0;

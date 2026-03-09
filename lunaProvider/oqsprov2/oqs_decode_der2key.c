@@ -239,7 +239,8 @@ static struct der2key_ctx_st *der2key_newctx(void *provctx,
         ctx->provctx = provctx;
         ctx->desc = desc;
         if (desc->evp_type == 0) {
-            ctx->desc->evp_type = OBJ_sn2nid(tls_name);
+            const char *sn = luna_short_name(tls_name);
+            ctx->desc->evp_type = OBJ_sn2nid(sn);
             OQS_DEC_PRINTF2(
                 "OQS DEC provider: der2key_newctx set evp_type to %d\n",
                 ctx->desc->evp_type);

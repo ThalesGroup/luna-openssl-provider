@@ -452,6 +452,8 @@ struct file_load_data_st {
     void *object_cbarg;
 };
 
+static int luna_store_handle_load_result(const OSSL_PARAM params[], struct file_load_data_st *data);
+
 static int file_load_construct(OSSL_DECODER_INSTANCE *decoder_inst,
                                const OSSL_PARAM *params, void *construct_data)
 {
@@ -476,8 +478,11 @@ static int file_load_construct(OSSL_DECODER_INSTANCE *decoder_inst,
     /* call ossl_store_handle_load_result (for example) */
     int rc_cb = data->object_cb(params, data->object_cbarg);
     LUNA_PRINTF(("rc_cb = %d\n", rc_cb));
-    if (rc_cb == 0)
-        return 0;
+    if (rc_cb == 0) {
+        rc_cb = luna_store_handle_load_result(params, data);
+        LUNA_PRINTF(("rc_cb@2 = %d\n", rc_cb));
+        return rc_cb;
+    }
 
     /* NOTE: at minimum we should inspect the keypair (ed25519/ed448)
      * for hsm-wise keypair consistency; i.e., the openssl ecx backend tends to
@@ -1091,4 +1096,98 @@ static int file_load_pkcs11_object(struct file_ctx_st *ctx,
     return rc;
 }
 
+struct extracted_param_data_st {
+    int object_type;
+    const char *data_type;
+    const char *input_type;
+    const char *data_structure;
+    const char *utf8_data;
+    const void *octet_data;
+    size_t octet_data_size;
+    const void *ref;
+    size_t ref_size;
+    const char *desc;
+};
+
+static int luna_store_handle_load_result(const OSSL_PARAM params[], struct file_load_data_st *data)
+{
+    struct ossl_load_result_data_st *cbdata = data->object_cbarg;
+    const OSSL_PARAM *p = NULL;
+    struct extracted_param_data_st helper_data;
+
+    memset(&helper_data, 0, sizeof(helper_data));
+    helper_data.object_type = OSSL_OBJECT_UNKNOWN;
+
+    if ((p = OSSL_PARAM_locate_const(params, OSSL_OBJECT_PARAM_TYPE)) != NULL
+        && !OSSL_PARAM_get_int(p, &helper_data.object_type))
+        return 0;
+    p = OSSL_PARAM_locate_const(params, OSSL_OBJECT_PARAM_DATA_TYPE);
+    if (p != NULL
+        && !OSSL_PARAM_get_utf8_string_ptr(p, &helper_data.data_type))
+        return 0;
+    p = OSSL_PARAM_locate_const(params, OSSL_OBJECT_PARAM_DATA);
+    if (p != NULL
+        && !OSSL_PARAM_get_octet_string_ptr(p, &helper_data.octet_data,
+            &helper_data.octet_data_size)
+        && !OSSL_PARAM_get_utf8_string_ptr(p, &helper_data.utf8_data))
+        return 0;
+    p = OSSL_PARAM_locate_const(params, OSSL_OBJECT_PARAM_DATA_STRUCTURE);
+    if (p != NULL
+        && !OSSL_PARAM_get_utf8_string_ptr(p, &helper_data.data_structure))
+        return 0;
+    p = OSSL_PARAM_locate_const(params, OSSL_OBJECT_PARAM_INPUT_TYPE);
+    if (p != NULL
+        && !OSSL_PARAM_get_utf8_string_ptr(p, &helper_data.input_type))
+        return 0;
+    p = OSSL_PARAM_locate_const(params, OSSL_OBJECT_PARAM_REFERENCE);
+    if (p != NULL && !OSSL_PARAM_get_octet_string_ptr(p, &helper_data.ref, &helper_data.ref_size))
+        return 0;
+    p = OSSL_PARAM_locate_const(params, OSSL_OBJECT_PARAM_DESC);
+    if (p != NULL && !OSSL_PARAM_get_utf8_string_ptr(p, &helper_data.desc))
+        return 0;
+
+    LUNA_PRINTF(("object_type = %d\n", helper_data.object_type));
+    LUNA_PRINTF(("data_type = %s\n", helper_data.data_type));
+    LUNA_PRINTF(("input_type = %s\n", helper_data.input_type));
+    LUNA_PRINTF(("data_structure = %s\n", helper_data.data_structure));
+    LUNA_PRINTF(("utf8_data = %s\n", helper_data.utf8_data));
+    LUNA_PRINTF(("octet_data = %p : %lu\n", helper_data.octet_data, helper_data.octet_data_size));
+    LUNA_PRINTF(("ref = %p : %lu\n", helper_data.ref, helper_data.ref_size));
+    LUNA_PRINTF(("desc = %s\n", helper_data.desc));
+
+    OQSX_KEY *key = NULL;
+
+    if ( helper_data.object_type == OSSL_OBJECT_PKEY &&
+            !strcmp(helper_data.data_structure, "PrivateKeyInfo") &&
+            helper_data.octet_data != NULL ) {
+        PKCS8_PRIV_KEY_INFO *p8inf = d2i_PKCS8_PRIV_KEY_INFO(NULL,
+                ((const unsigned char**)(&helper_data.octet_data)), helper_data.octet_data_size);
+        LUNA_PRINTF(("p8inf = %p\n", p8inf));
+        if (p8inf != NULL) {
+            key = oqsx_key_from_pkcs8(p8inf, NULL/*TODO:PROV_OQS_LIBCTX_OF(provctx)*/, NULL);
+            PKCS8_PRIV_KEY_INFO_free(p8inf);
+            p8inf = 0;
+        }
+    } else if ( helper_data.object_type == OSSL_OBJECT_PKEY &&
+            !strcmp(helper_data.data_structure, "SubjectPublicKeyInfo") &&
+            helper_data.octet_data != NULL ) {
+        key = oqsx_d2i_PUBKEY(NULL,
+                ((const unsigned char **)(&helper_data.octet_data)), helper_data.octet_data_size);
+    }
+
+    LUNA_PRINTF(("key = %p\n", key));
+    if (key != NULL) {
+        void *reference = &key;
+        size_t reference_sz = sizeof(reference);
+        OSSL_PARAM outParams[4];
+        outParams[0] = OSSL_PARAM_construct_int(OSSL_OBJECT_PARAM_TYPE, &helper_data.object_type);
+        // NOTE: use the same tls_name as in lunaCommon::algtab
+        outParams[1] = OSSL_PARAM_construct_utf8_string(OSSL_OBJECT_PARAM_DATA_TYPE, key->tls_name, 0);
+        outParams[2] = OSSL_PARAM_construct_octet_string(OSSL_OBJECT_PARAM_REFERENCE, reference, reference_sz);
+        outParams[3] = OSSL_PARAM_construct_end();
+        return data->object_cb(outParams, data->object_cbarg);
+    }
+
+    return 0;
+}
 

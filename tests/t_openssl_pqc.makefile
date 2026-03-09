@@ -18,11 +18,12 @@
 include t_openssl_common.include
 
 # pqc type
-#PQCTYPE=dilithium3
-#PQCTYPE=dilithium5
-#PQCTYPE=p384_dilithium3
+#PQCTYPE=mldsa44
+#PQCTYPE=mldsa65
 PQCTYPE=mldsa87
+# hybrid
 #PQCTYPE=p521_mldsa87
+# composite
 #PQCTYPE=mldsa87_p384
 #PQCTYPE=mldsa87_bp384
 #PQCTYPE=mldsa87_ed448

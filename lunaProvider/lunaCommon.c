@@ -1754,7 +1754,7 @@ int LUNA_OQS_SIG_verify_ndx(luna_prov_key_ctx *keyctx,
 
 /* debug print */
 #ifndef NDEBUG
-static void _LUNA_debug_ex(const char *prefix, const char *prefix2, const CK_BYTE* p, size_t n) {
+static void _LUNA_debug_ex(const char *prefix, const char *prefix2, const unsigned char* p, size_t n) {
     if (getenv("LUNAPROV") == NULL)
         return;
     if (p == NULL) {
@@ -1808,7 +1808,7 @@ static void _LUNA_OQS_debug(luna_prov_key_ctx *keyctx, const char *prefix) {
     }
 }
 #else
-static void _LUNA_debug_ex(const char *prefix, const char *prefix2, const CK_BYTE* p, size_t n) {
+static void _LUNA_debug_ex(const char *prefix, const char *prefix2, const unsigned char* p, size_t n) {
 }
 static void _LUNA_OQS_debug(luna_prov_key_ctx *keyctx, const char *prefix) {
 }
@@ -3800,25 +3800,43 @@ int LUNA_FIND_CTX_next(LUNA_FIND_CTX *ctx) {
     return rc;
 }
 
+static struct {
+    const char *sn;
+    const char *tls_name;
+    const char *ln;
+} sntab[] = {
+        { LUNA_SN_ML_DSA_87, LUNA_TN_ML_DSA_87, LUNA_LN_ML_DSA_87 },
+        { LUNA_SN_ML_DSA_65, LUNA_TN_ML_DSA_65, LUNA_LN_ML_DSA_65 },
+        { LUNA_SN_ML_DSA_44, LUNA_TN_ML_DSA_44, LUNA_LN_ML_DSA_44 }
+};
+
 const char *luna_short_name(const char *txt) {
-    static struct {
-        const char *sn;
-        const char *txt;
-    } sntab[] = {
-            { LUNA_SN_ML_DSA_87, LUNA_TN_ML_DSA_87 },
-            { LUNA_SN_ML_DSA_65, LUNA_TN_ML_DSA_65 },
-            { LUNA_SN_ML_DSA_44, LUNA_TN_ML_DSA_44 }
-    };
     if (txt == NULL)
         return NULL;
     const char *sn = txt;
     for (int i = 0; i < DIM(sntab); i++) {
-        if (!strcmp(txt, sntab[i].txt)) {
+        // fix error message "key2any_encode:passed a null parameter"
+        if ( !strcmp(txt, sntab[i].tls_name) || !strcmp(txt, sntab[i].ln) ) {
             sn = sntab[i].sn;
             break;
         }
     }
     LUNA_PRINTF(("txt = %s, sn = %s\n", txt, sn));
     return sn;
+}
+
+const char *luna_tls_name(const char *txt) {
+    if (txt == NULL)
+        return NULL;
+    const char *tls_name = txt;
+    for (int i = 0; i < DIM(sntab); i++) {
+        // fix error message "oqs_sig_sign:reason(12)"
+        if ( !strcmp(txt, sntab[i].sn) || !strcmp(txt, sntab[i].ln) ) {
+            tls_name = sntab[i].tls_name;
+            break;
+        }
+    }
+    LUNA_PRINTF(("txt = %s, tls_name = %s\n", txt, tls_name));
+    return tls_name;
 }
 

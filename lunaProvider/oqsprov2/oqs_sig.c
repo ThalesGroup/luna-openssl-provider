@@ -402,7 +402,8 @@ static int oqs_sig_sign(void *vpoqs_sigctx, unsigned char *sig, size_t *siglen,
     if (is_composite) {
         unsigned char *buf;
         int i;
-        int nid = OBJ_sn2nid(oqsxkey->tls_name);
+        const char *sn = luna_short_name(oqsxkey->tls_name);
+        int nid = OBJ_sn2nid(sn);
         int comp_idx = get_composite_idx(get_oqsalg_idx(nid));
         if (comp_idx < 1)
             goto endsign;
@@ -787,7 +788,8 @@ static int oqs_sig_verify(void *vpoqs_sigctx, const unsigned char *sig,
     if (is_composite) {
         CompositeSignature *compsig;
         int i;
-        int nid = OBJ_sn2nid(oqsxkey->tls_name);
+        const char *sn = luna_short_name(oqsxkey->tls_name);
+        int nid = OBJ_sn2nid(sn);
         int comp_idx = get_composite_idx(get_oqsalg_idx(nid));
         if (comp_idx < 1)
             goto endverify;

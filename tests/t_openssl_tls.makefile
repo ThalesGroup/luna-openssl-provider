@@ -32,11 +32,12 @@ PREFER_PQC_GROUP=0
 PREFER_ECDHE=0
 PREFER_DHE=0
 PREFER_EC=0
-PREFER_PURE=0
+PREFER_PURE_SIG=1
+PREFER_PURE_KEM=0
 
 # root CA cert
 ifeq ($(PREFER_PQC_CA),1)
-ifeq ($(PREFER_PURE),1)
+ifeq ($(PREFER_PURE_SIG),1)
 GENPKEY1_ALGORITHM=-algorithm mldsa87
 else
 GENPKEY1_ALGORITHM=-algorithm p521_mldsa87
@@ -54,7 +55,7 @@ endif
 
 # intermediate CA cert
 ifeq ($(PREFER_PQC_CA),1)
-ifeq ($(PREFER_PURE),1)
+ifeq ($(PREFER_PURE_SIG),1)
 GENPKEY2_ALGORITHM=-algorithm mldsa65
 else
 GENPKEY2_ALGORITHM=-algorithm p384_mldsa65
@@ -76,7 +77,7 @@ endif
 
 ifneq ($(PREFER_PQC_SERVER),1)
 
-ifneq ($(PREFER_ECDHE),1)
+ifneq ($(PREFER_EC),1)
 KEYTYPE=RSA
 GENPKEY3_ALGORITHM=-algorithm RSA
 GENPKEY3_PKEYOPT=-pkeyopt rsa_keygen_bits:3072
@@ -91,7 +92,7 @@ endif
 else
 
 KEYTYPE=PQC
-ifeq ($(PREFER_PURE),1)
+ifeq ($(PREFER_PURE_SIG),1)
 #GENPKEY3_ALGORITHM=-algorithm mldsa65
 #GENPKEY3_ALGORITHM=-algorithm ed25519
 #GENPKEY3_ALGORITHM=-algorithm ed448
@@ -203,7 +204,7 @@ SW_KEYFORM_CLIENT=$(SW_KEYFORM)
 ifeq ($(PREFER_PQC_GROUP),1)
 
 # google chrome (preferred order of algos)
-ifeq ($(PREFER_PURE),1)
+ifeq ($(PREFER_PURE_KEM),1)
 TLSGROUPS=kyber768
 else
 TLSGROUPS=x25519_kyber768
@@ -212,7 +213,7 @@ TLSGROUPS=x25519_kyber768
 endif
 
 # mlkem (preferred order of algos)
-ifeq ($(PREFER_PURE),1)
+ifeq ($(PREFER_PURE_KEM),1)
 TLSGROUPS=mlkem768
 else
 #TLSGROUPS=x448_mlkem768

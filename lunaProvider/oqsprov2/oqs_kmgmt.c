@@ -593,9 +593,10 @@ static const OSSL_PARAM *oqsx_settable_params(void *provctx)
 }
 
 static void *oqsx_gen_init(void *provctx, int selection, char *oqs_name,
-                           char *tls_name, int primitive, int bit_security,
+                           char *algname, int primitive, int bit_security,
                            int alg_idx)
 {
+    char *tls_name = (char*)luna_tls_name(algname);
     OSSL_LIB_CTX *libctx = PROV_OQS_LIBCTX_OF(provctx);
     struct oqsx_gen_ctx *gctx = NULL;
 
@@ -664,7 +665,7 @@ void *oqsx_load(const void *reference, size_t reference_sz)
     OQSX_KEY *key = NULL;
 
     OQS_KM_PRINTF("OQSKEYMGMT: load called\n");
-    if (reference_sz == sizeof(key)) {
+    if ( reference != NULL && reference_sz == sizeof(key) ) {
         /* The contents of the reference is the address to our object */
         key = *(OQSX_KEY **)reference;
         /* We grabbed, so we detach it */
@@ -695,10 +696,11 @@ static int oqsx_gen_set_params(void *genctx, const OSSL_PARAM params[])
     p = OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_GROUP_NAME);
     if (p != NULL) {
         const char *algname = (char *)p->data;
+        char *tls_name = (char*)luna_tls_name(algname);
 
         OPENSSL_free(gctx->tls_name);
         LUNA_PRINTF(("setting tls_name = %s\n", algname));
-        gctx->tls_name = OPENSSL_strdup(algname);
+        gctx->tls_name = OPENSSL_strdup(tls_name);
     }
     p = OSSL_PARAM_locate_const(params, OSSL_KDF_PARAM_PROPERTIES);
     if (p != NULL) {

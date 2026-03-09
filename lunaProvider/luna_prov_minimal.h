@@ -168,6 +168,7 @@ int LUNA_PARAM_get_encoded_public_key(void *oqsxk, const OSSL_PARAM *p, void **v
 
 /* translate to short name, if possible */
 const char *luna_short_name(const char *txt);
+const char *luna_tls_name(const char *txt);
 
 #endif // _LUNA_PROV_MINIMAL_H
 

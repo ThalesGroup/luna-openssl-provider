@@ -149,7 +149,7 @@ static oqs_nid_name_t nid_names[NID_TABLE_LEN] = {
     {0, "dilithium5", OQS_SIG_alg_dilithium_5, KEY_TYPE_SIG, 256},
     {0, "p521_dilithium5", OQS_SIG_alg_dilithium_5, KEY_TYPE_HYB_SIG, 256},
 #endif // LUNA_OQS_dilithium (also related to NID_TABLE_SUBTRACT)
-    {0, LUNA_SN_ML_DSA_44, OQS_SIG_alg_ml_dsa_44, KEY_TYPE_SIG, 128},
+    {0, LUNA_TN_ML_DSA_44, OQS_SIG_alg_ml_dsa_44, KEY_TYPE_SIG, 128},
     {0, "p256_mldsa44", OQS_SIG_alg_ml_dsa_44, KEY_TYPE_HYB_SIG, 128},
     {0, "rsa3072_mldsa44", OQS_SIG_alg_ml_dsa_44, KEY_TYPE_HYB_SIG, 128},
     {0, "mldsa44_pss2048", OQS_SIG_alg_ml_dsa_44, KEY_TYPE_CMP_SIG, 112},
@@ -157,14 +157,14 @@ static oqs_nid_name_t nid_names[NID_TABLE_LEN] = {
     {0, "mldsa44_ed25519", OQS_SIG_alg_ml_dsa_44, KEY_TYPE_CMP_SIG, 128},
     {0, "mldsa44_p256", OQS_SIG_alg_ml_dsa_44, KEY_TYPE_CMP_SIG, 128},
     {0, "mldsa44_bp256", OQS_SIG_alg_ml_dsa_44, KEY_TYPE_CMP_SIG, 256},
-    {0, LUNA_SN_ML_DSA_65, OQS_SIG_alg_ml_dsa_65, KEY_TYPE_SIG, 192},
+    {0, LUNA_TN_ML_DSA_65, OQS_SIG_alg_ml_dsa_65, KEY_TYPE_SIG, 192},
     {0, "p384_mldsa65", OQS_SIG_alg_ml_dsa_65, KEY_TYPE_HYB_SIG, 192},
     {0, "mldsa65_pss3072", OQS_SIG_alg_ml_dsa_65, KEY_TYPE_CMP_SIG, 128},
     {0, "mldsa65_rsa3072", OQS_SIG_alg_ml_dsa_65, KEY_TYPE_CMP_SIG, 128},
     {0, "mldsa65_p256", OQS_SIG_alg_ml_dsa_65, KEY_TYPE_CMP_SIG, 128},
     {0, "mldsa65_bp256", OQS_SIG_alg_ml_dsa_65, KEY_TYPE_CMP_SIG, 256},
     {0, "mldsa65_ed25519", OQS_SIG_alg_ml_dsa_65, KEY_TYPE_CMP_SIG, 128},
-    {0, LUNA_SN_ML_DSA_87, OQS_SIG_alg_ml_dsa_87, KEY_TYPE_SIG, 256},
+    {0, LUNA_TN_ML_DSA_87, OQS_SIG_alg_ml_dsa_87, KEY_TYPE_SIG, 256},
     {0, "p521_mldsa87", OQS_SIG_alg_ml_dsa_87, KEY_TYPE_HYB_SIG, 256},
     {0, "mldsa87_p384", OQS_SIG_alg_ml_dsa_87, KEY_TYPE_CMP_SIG, 192},
     {0, "mldsa87_bp384", OQS_SIG_alg_ml_dsa_87, KEY_TYPE_CMP_SIG, 384},
@@ -207,10 +207,11 @@ static oqs_nid_name_t nid_names[NID_TABLE_LEN] = {
     ///// OQS_TEMPLATE_FRAGMENT_OQSNAMES_END
 };
 
-int oqs_set_nid(char *tlsname, int nid)
+int oqs_set_nid(char *algname_in, int nid)
 {
     int i;
-    LUNA_PRINTF(("tlsname = %s, nid = %d\n", tlsname, nid));
+    char *tlsname = (char*)luna_tls_name(algname_in);
+    LUNA_PRINTF(("algname_in = %s, tlsname = %s, nid = %d\n", algname_in, tlsname, nid));
     for (i = 0; i < NID_TABLE_LEN; i++) {
         if (!strcmp(nid_names[i].tlsname, tlsname)) {
             nid_names[i].nid = nid;
@@ -693,7 +694,8 @@ static OQSX_KEY *oqsx_key_op(const X509_ALGOR *palg, const unsigned char *p,
 
             // check if key is the right size
             for (i = 0; i < key->numkeys; i++) {
-                char *name = get_cmpname(OBJ_sn2nid(key->tls_name), i);
+                const char *sn = luna_short_name(key->tls_name);
+                char *name = get_cmpname(OBJ_sn2nid(sn), i);
                 if (name == NULL) {
                     ERR_raise(ERR_LIB_USER, OQSPROV_R_INVALID_ENCODING);
                     goto err_key_op;
@@ -734,7 +736,8 @@ static OQSX_KEY *oqsx_key_op(const X509_ALGOR *palg, const unsigned char *p,
             for (i = 0; i < key->numkeys; i++) {
                 //size_t classic_publen = 0;
                 char *name;
-                if ((name = get_cmpname(OBJ_sn2nid(key->tls_name), i))
+                const char *sn = luna_short_name(key->tls_name);
+                if ((name = get_cmpname(OBJ_sn2nid(sn), i))
                     == NULL) {
                     ERR_raise(ERR_LIB_USER, OQSPROV_R_INVALID_ENCODING);
                     OPENSSL_secure_clear_free(temp_priv, temp_priv_len);
@@ -925,7 +928,8 @@ static int oqsx_key_recreate_classickey(OQSX_KEY *key, oqsx_key_op_t op)
 
             for (i = 0; i < key->numkeys; i++) {
                 char *name;
-                if ((name = get_cmpname(OBJ_sn2nid(key->tls_name), i))
+                const char *sn = luna_short_name(key->tls_name);
+                if ((name = get_cmpname(OBJ_sn2nid(sn), i))
                     == NULL) {
                     ERR_raise(ERR_LIB_USER, OQSPROV_R_INVALID_ENCODING);
                     goto rec_err;
@@ -966,7 +970,8 @@ static int oqsx_key_recreate_classickey(OQSX_KEY *key, oqsx_key_op_t op)
 
             for (i = 0; i < key->numkeys; i++) {
                 char *name;
-                if ((name = get_cmpname(OBJ_sn2nid(key->tls_name), i))
+                const char *sn = luna_short_name(key->tls_name);
+                if ((name = get_cmpname(OBJ_sn2nid(sn), i))
                     == NULL) {
                     ERR_raise(ERR_LIB_USER, OQSPROV_R_INVALID_ENCODING);
                     goto rec_err;
@@ -1365,10 +1370,11 @@ extern const char *oqs_oid_alg_list[];
 
 static void oqsx_free_evp_ctx(OQSX_EVP_CTX *evp_ctx);
 
-OQSX_KEY *oqsx_key_new(OSSL_LIB_CTX *libctx, char *oqs_name, char *tls_name,
+OQSX_KEY *oqsx_key_new(OSSL_LIB_CTX *libctx, char *oqs_name, char *algname_in,
                        int primitive, const char *propq, int bit_security,
                        int alg_idx)
 {
+    char *tls_name = (char*)luna_tls_name(algname_in);
     OQSX_KEY *ret = OPENSSL_zalloc(
         sizeof(*ret)); // ensure all component pointers are NULL
     OQSX_EVP_CTX *evp_ctx = NULL;
@@ -1530,7 +1536,8 @@ OQSX_KEY *oqsx_key_new(OSSL_LIB_CTX *libctx, char *oqs_name, char *tls_name,
 
         for (i = 0; i < ret->numkeys; i++) {
             char *name;
-            if ((name = get_cmpname(OBJ_sn2nid(tls_name), i)) == NULL) {
+            const char *sn = luna_short_name(tls_name);
+            if ((name = get_cmpname(OBJ_sn2nid(sn), i)) == NULL) {
                 ERR_raise(ERR_LIB_USER, OQSPROV_R_INVALID_ENCODING);
                 goto err;
             }
@@ -1984,7 +1991,8 @@ int oqsx_key_gen(OQSX_KEY *key)
         ret = oqsx_key_set_composites(key);
         for (i = 0; i < key->numkeys; i++) {
             char *name;
-            if ((name = get_cmpname(OBJ_sn2nid(key->tls_name), i)) == NULL) {
+            const char *sn = luna_short_name(key->tls_name);
+            if ((name = get_cmpname(OBJ_sn2nid(sn), i)) == NULL) {
                 goto err_gen;
             }
             if (get_oqsname_fromtls(name) == 0) {

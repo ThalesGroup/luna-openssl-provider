@@ -2205,4 +2205,7 @@ int lunax_oqsx_EVP_PKEY_keygen_ex(EVP_PKEY_CTX *ctx, EVP_PKEY **ppkey, int lunaf
 #define OQS_PROV_MAX_KEYS (2) /* 2 = two keys, for hybrid (one classic and one pqc) */
 #define OQS_PROV_MAX_ACCUMULATED ((1024 * 1024) - 16) /* somewhat less than 1MB, for accumulated plaintext */
 
+/* misc */
+OQSX_KEY *oqsx_d2i_PUBKEY(OQSX_KEY **a, const unsigned char **pp, long length);
+
 #endif
