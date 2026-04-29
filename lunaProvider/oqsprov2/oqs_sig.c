@@ -80,7 +80,9 @@ static int get_aid(unsigned char **oidbuf, const char *tls_name)
     X509_ALGOR *algor = X509_ALGOR_new();
     int aidlen = 0;
 
-    X509_ALGOR_set0(algor, OBJ_txt2obj(tls_name, 0), V_ASN1_UNDEF, NULL);
+    const char *txt = luna_short_name(tls_name);
+    LUNA_PRINTF(("tls_name = %s, txt = %s\n", tls_name, txt));
+    X509_ALGOR_set0(algor, OBJ_txt2obj(txt, 0), V_ASN1_UNDEF, NULL);
 
     aidlen = i2d_X509_ALGOR(algor, oidbuf);
     X509_ALGOR_free(algor);
@@ -400,7 +402,8 @@ static int oqs_sig_sign(void *vpoqs_sigctx, unsigned char *sig, size_t *siglen,
     if (is_composite) {
         unsigned char *buf;
         int i;
-        int nid = OBJ_sn2nid(oqsxkey->tls_name);
+        const char *sn = luna_short_name(oqsxkey->tls_name);
+        int nid = OBJ_sn2nid(sn);
         int comp_idx = get_composite_idx(get_oqsalg_idx(nid));
         if (comp_idx < 1)
             goto endsign;
@@ -785,7 +788,8 @@ static int oqs_sig_verify(void *vpoqs_sigctx, const unsigned char *sig,
     if (is_composite) {
         CompositeSignature *compsig;
         int i;
-        int nid = OBJ_sn2nid(oqsxkey->tls_name);
+        const char *sn = luna_short_name(oqsxkey->tls_name);
+        int nid = OBJ_sn2nid(sn);
         int comp_idx = get_composite_idx(get_oqsalg_idx(nid));
         if (comp_idx < 1)
             goto endverify;

@@ -639,14 +639,14 @@ static int oqs_group_capability(OSSL_CALLBACK *cb, void *arg)
 }
 
 #ifdef OSSL_CAPABILITY_TLS_SIGALG_NAME
-#    define OQS_SIGALG_ENTRY(tlsname, realname, algorithm, oid, idx)          \
+#    define OQS_SIGALG_ENTRY_TLOI(tlsname, longname, oid, idx)      \
         {                                                                     \
             OSSL_PARAM_utf8_string(OSSL_CAPABILITY_TLS_SIGALG_IANA_NAME,      \
-                                   #tlsname, sizeof(#tlsname)),               \
+                                   tlsname, sizeof(tlsname)),                 \
                 OSSL_PARAM_utf8_string(OSSL_CAPABILITY_TLS_SIGALG_NAME,       \
-                                       #tlsname, sizeof(#tlsname)),           \
-                OSSL_PARAM_utf8_string(OSSL_CAPABILITY_TLS_SIGALG_OID, #oid,  \
-                                       sizeof(#oid)),                         \
+                                       longname, sizeof(longname)),           \
+                OSSL_PARAM_utf8_string(OSSL_CAPABILITY_TLS_SIGALG_OID, oid,   \
+                                       sizeof(oid)),                          \
                 OSSL_PARAM_uint(                                              \
                     OSSL_CAPABILITY_TLS_SIGALG_CODE_POINT,                    \
                     (unsigned int *)&oqs_sigalg_list[idx].code_point),        \
@@ -659,6 +659,9 @@ static int oqs_group_capability(OSSL_CALLBACK *cb, void *arg)
                                (unsigned int *)&oqs_sigalg_list[idx].maxtls), \
                 OSSL_PARAM_END                                                \
         }
+
+#    define OQS_SIGALG_ENTRY(tlsname, xxunused, longname, oid, idx)           \
+        OQS_SIGALG_ENTRY_TLOI(#tlsname, #longname, #oid, idx)
 
 static const OSSL_PARAM oqs_param_sigalg_list[][12] = {
 ///// OQS_TEMPLATE_FRAGMENT_SIGALG_NAMES_START
@@ -683,7 +686,7 @@ static const OSSL_PARAM oqs_param_sigalg_list[][12] = {
                      "1.3.9999.2.7.4", 6),
 #    endif
 #    ifdef OQS_ENABLE_SIG_ml_dsa_44
-    OQS_SIGALG_ENTRY(mldsa44, mldsa44, mldsa44, "2.16.840.1.101.3.4.3.17", 7),
+    OQS_SIGALG_ENTRY_TLOI(LUNA_TN_ML_DSA_44, LUNA_LN_ML_DSA_44, LUNA_OID_ML_DSA_44, 7),
     OQS_SIGALG_ENTRY(p256_mldsa44, p256_mldsa44, p256_mldsa44, "1.3.9999.7.1",
                      8),
     OQS_SIGALG_ENTRY(rsa3072_mldsa44, rsa3072_mldsa44, rsa3072_mldsa44,
@@ -700,7 +703,7 @@ static const OSSL_PARAM oqs_param_sigalg_list[][12] = {
                      "2.16.840.1.114027.80.8.1.5", 14),
 #    endif
 #    ifdef OQS_ENABLE_SIG_ml_dsa_65
-    OQS_SIGALG_ENTRY(mldsa65, mldsa65, mldsa65, "2.16.840.1.101.3.4.3.18", 15),
+    OQS_SIGALG_ENTRY_TLOI(LUNA_TN_ML_DSA_65, LUNA_LN_ML_DSA_65, LUNA_OID_ML_DSA_65, 15),
     OQS_SIGALG_ENTRY(p384_mldsa65, p384_mldsa65, p384_mldsa65, "1.3.9999.7.3",
                      16),
     OQS_SIGALG_ENTRY(mldsa65_pss3072, mldsa65_pss3072, mldsa65_pss3072,
@@ -715,7 +718,7 @@ static const OSSL_PARAM oqs_param_sigalg_list[][12] = {
                      "2.16.840.1.114027.80.8.1.10", 21),
 #    endif
 #    ifdef OQS_ENABLE_SIG_ml_dsa_87
-    OQS_SIGALG_ENTRY(mldsa87, mldsa87, mldsa87, "2.16.840.1.101.3.4.3.19", 22),
+    OQS_SIGALG_ENTRY_TLOI(LUNA_TN_ML_DSA_87, LUNA_LN_ML_DSA_87, LUNA_OID_ML_DSA_87, 22),
     OQS_SIGALG_ENTRY(p521_mldsa87, p521_mldsa87, p521_mldsa87, "1.3.9999.7.4",
                      23),
     OQS_SIGALG_ENTRY(mldsa87_p384, mldsa87_p384, mldsa87_p384,

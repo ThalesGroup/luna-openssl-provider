@@ -301,6 +301,9 @@ int ec_has(const void *keydata, int selection)
     if ((selection & EC_POSSIBLE_SELECTIONS) == 0)
         return 1; /* the selection is not missing */
 
+#if 0
+    // FIXME:FIXME: the proper solution is to never hook up the provider entry point to receive this request in the first place; i.e.,
+    // a runtime decision, based on one or more config items (this may get complicated for hybrid algorithms).
     /* For private key selection, check if this is an HSM key.
      * Reject software/ephemeral keys - let default provider handle them.
      * This is critical for TLS 1.3 ephemeral ECDH keys.
@@ -317,6 +320,7 @@ int ec_has(const void *keydata, int selection)
         }
         /* HSM key - continue with normal checks */
     }
+#endif
 
     if ((selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY) != 0)
         ok = ok && (EC_KEY_get0_public_key(ec) != NULL);

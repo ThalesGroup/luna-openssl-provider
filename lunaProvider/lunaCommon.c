@@ -837,15 +837,15 @@ static struct {
 
 #ifdef LUNA_OQS_MLDSA
     // mldsa
-    { 0, "mldsa44",
+    { 0, LUNA_TN_ML_DSA_44,
         CKK_MLDSA, CKP_MLDSA_44,
         CKM_MLDSA_KEY_PAIR_GEN,
         CKM_MLDSA, CKM_INVALID, CKM_INVALID },
-    { 0, "mldsa65",
+    { 0, LUNA_TN_ML_DSA_65,
         CKK_MLDSA, CKP_MLDSA_65,
         CKM_MLDSA_KEY_PAIR_GEN,
         CKM_MLDSA, CKM_INVALID, CKM_INVALID },
-    { 0, "mldsa87",
+    { 0, LUNA_TN_ML_DSA_87,
         CKK_MLDSA, CKP_MLDSA_87,
         CKM_MLDSA_KEY_PAIR_GEN,
         CKM_MLDSA, CKM_INVALID, CKM_INVALID },
@@ -1461,7 +1461,7 @@ int LUNA_OQS_QUERY_SIG_verify(luna_prov_key_ctx *keyctx) {
 }
 
 static CK_RV LunaPqcFind(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo);
-static CK_RV LunaPqcGen(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo, int is_kem);
+static CK_RV LunaPqcGen(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo, int is_kem, int is_ecx);
 static void _LUNA_OQS_WRITEKEY(luna_prov_key_ctx *keyctx, luna_prov_key_reason reason);
 static void _LUNA_OQS_READKEY(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *keyinfo);
 static void LUNA_OQS_READKEY_NDX_LOCK(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *keyinfo, int ndx_in);
@@ -1478,7 +1478,8 @@ static void LunaTranslateFM2FW(luna_prov_key_ctx *keyctx,
 
 /* luna oqs callback functions */
 static int LUNA_OQS_keypair(luna_prov_key_ctx *keyctx, luna_prov_key_bits *keybits) {
-    int is_kem = keybits->is_kem;
+    const int is_kem = keybits->is_kem;
+    const int is_ecx = 0;
     // check keyctx already initialized
     if (keyctx->magic != LUNA_PROV_MAGIC_ZERO)
         return LUNA_OQS_ERROR;
@@ -1500,7 +1501,7 @@ static int LUNA_OQS_keypair(luna_prov_key_ctx *keyctx, luna_prov_key_bits *keybi
           || (rv == CKR_OBJECT_DECODING_FAILED && keyctx->reason == LUNA_PROV_KEY_REASON_ZERO)
            ) {
             _LUNA_OQS_WRITEKEY(keyctx, LUNA_PROV_KEY_REASON_GEN);
-            rv = LunaPqcGen(keyctx, &keyinfo, is_kem);
+            rv = LunaPqcGen(keyctx, &keyinfo, is_kem, is_ecx);
         }
 
         // get public key
@@ -1753,7 +1754,7 @@ int LUNA_OQS_SIG_verify_ndx(luna_prov_key_ctx *keyctx,
 
 /* debug print */
 #ifndef NDEBUG
-static void _LUNA_debug_ex(const char *prefix, const char *prefix2, const CK_BYTE* p, size_t n) {
+static void _LUNA_debug_ex(const char *prefix, const char *prefix2, const unsigned char* p, size_t n) {
     if (getenv("LUNAPROV") == NULL)
         return;
     if (p == NULL) {
@@ -1807,7 +1808,7 @@ static void _LUNA_OQS_debug(luna_prov_key_ctx *keyctx, const char *prefix) {
     }
 }
 #else
-static void _LUNA_debug_ex(const char *prefix, const char *prefix2, const CK_BYTE* p, size_t n) {
+static void _LUNA_debug_ex(const char *prefix, const char *prefix2, const unsigned char* p, size_t n) {
 }
 static void _LUNA_OQS_debug(luna_prov_key_ctx *keyctx, const char *prefix) {
 }
@@ -3091,6 +3092,13 @@ int ECX_KEY_TYPE_is_kem(struct ecx_gen_ctx *gctx) {
 }
 
 static
+int ECX_KEY_TYPE_is_sig(struct ecx_gen_ctx *gctx) {
+    const int t = gctx->type;
+    int rc = ( (t == ECX_KEY_TYPE_ED25519) || (t == ECX_KEY_TYPE_ED448) );
+    return rc;
+}
+
+static
 int ECX_KEY_TYPE_privkeylen(struct ecx_gen_ctx *gctx) {
     switch (gctx->type) {
     case ECX_KEY_TYPE_X25519:
@@ -3121,17 +3129,30 @@ int luna_prov_ecx_sig_derive_private(struct ecx_gen_ctx *gctx,
         ECX_KEY *ecx, unsigned char *privout) {
 
     luna_prov_key_ctx *keyctx = gctx->lunakeyctx;
-
-    // in software
-    if ( (luna_get_enable_ed_gen_key_pair() != 1)
-            || (luna_prov_query_ecx(keyctx) != 1) ) {
-        return luna_prov_ecx_sig_derive_private_sw(gctx,
-                ecx, privout);
+    // need to check if this is for kem or for sig
+    const int is_kem = ECX_KEY_TYPE_is_kem(gctx);
+    const int is_sig = ECX_KEY_TYPE_is_sig(gctx);
+    const int is_ecx = 1;
+    if (is_kem) {
+        if ( (luna_get_enable_em_gen_key_pair() != 1)
+                || (luna_prov_query_ecx(keyctx) != 1) ) {
+            // in software
+            return luna_prov_ecx_sig_derive_private_sw(gctx,
+                    ecx, privout);
+        }
+    } else if (is_sig) {
+        if ( (luna_get_enable_ed_gen_key_pair() != 1)
+                || (luna_prov_query_ecx(keyctx) != 1) ) {
+            // in software
+            return luna_prov_ecx_sig_derive_private_sw(gctx,
+                    ecx, privout);
+        }
+    } else {
+        LUNA_PRINTF(("BUG: neither kem nor sig\n"));
+        return 0;
     }
 
     // in hardware
-    const int is_kem = ECX_KEY_TYPE_is_kem(gctx);
-
     // check keyctx already initialized
     if (keyctx->magic != LUNA_PROV_MAGIC_ZERO)
         return 0;
@@ -3157,7 +3178,7 @@ int luna_prov_ecx_sig_derive_private(struct ecx_gen_ctx *gctx,
           || (rv == CKR_OBJECT_DECODING_FAILED && keyctx->reason == LUNA_PROV_KEY_REASON_ZERO)
            ) {
             _LUNA_OQS_WRITEKEY(keyctx, LUNA_PROV_KEY_REASON_GEN);
-            rv = LunaPqcGen(keyctx, &keyinfo, is_kem);
+            rv = LunaPqcGen(keyctx, &keyinfo, is_kem, is_ecx);
         }
 
         // get public key
@@ -3181,12 +3202,28 @@ int luna_prov_ecx_sig_derive_private(struct ecx_gen_ctx *gctx,
 
 int luna_prov_ecx_dhkem_derive_private(struct ecx_gen_ctx *gctx,
         ECX_KEY *ecx, unsigned char *privout) {
-    // in software
-    if (luna_get_enable_ed_gen_key_pair() != 1)
-        return luna_prov_ecx_dhkem_derive_private_sw(gctx,
-                ecx, privout);
+    // need to check if this is for kem or for sig
+    const int is_kem = ECX_KEY_TYPE_is_kem(gctx);
+    const int is_sig = ECX_KEY_TYPE_is_sig(gctx);
+    const int is_ecx = 1;
+    if (is_kem) {
+        if (luna_get_enable_em_gen_key_pair() != 1) {
+            // in software
+            return luna_prov_ecx_dhkem_derive_private_sw(gctx,
+                    ecx, privout);
+        }
+    } else if (is_sig) {
+        if (luna_get_enable_ed_gen_key_pair() != 1) {
+            // in software
+            return luna_prov_ecx_dhkem_derive_private_sw(gctx,
+                    ecx, privout);
+        }
+    } else {
+        LUNA_PRINTF(("BUG: neither kem nor sig\n"));
+        return 0;
+    }
     // in hardware
-    LUNA_PRINTF(("NOT IMPLEMENTED\n"));
+    LUNA_PRINTF(("BUG: NOT IMPLEMENTED\n"));
     return 0; // FIXME:FIXME:
 }
 
@@ -3761,5 +3798,45 @@ int LUNA_FIND_CTX_next(LUNA_FIND_CTX *ctx) {
     }
     LUNA_PRINTF(("rc = %d\n", rc));
     return rc;
+}
+
+static struct {
+    const char *sn;
+    const char *tls_name;
+    const char *ln;
+} sntab[] = {
+        { LUNA_SN_ML_DSA_87, LUNA_TN_ML_DSA_87, LUNA_LN_ML_DSA_87 },
+        { LUNA_SN_ML_DSA_65, LUNA_TN_ML_DSA_65, LUNA_LN_ML_DSA_65 },
+        { LUNA_SN_ML_DSA_44, LUNA_TN_ML_DSA_44, LUNA_LN_ML_DSA_44 }
+};
+
+const char *luna_short_name(const char *txt) {
+    if (txt == NULL)
+        return NULL;
+    const char *sn = txt;
+    for (int i = 0; i < DIM(sntab); i++) {
+        // fix error message "key2any_encode:passed a null parameter"
+        if ( !strcmp(txt, sntab[i].tls_name) || !strcmp(txt, sntab[i].ln) ) {
+            sn = sntab[i].sn;
+            break;
+        }
+    }
+    LUNA_PRINTF(("txt = %s, sn = %s\n", txt, sn));
+    return sn;
+}
+
+const char *luna_tls_name(const char *txt) {
+    if (txt == NULL)
+        return NULL;
+    const char *tls_name = txt;
+    for (int i = 0; i < DIM(sntab); i++) {
+        // fix error message "oqs_sig_sign:reason(12)"
+        if ( !strcmp(txt, sntab[i].sn) || !strcmp(txt, sntab[i].ln) ) {
+            tls_name = sntab[i].tls_name;
+            break;
+        }
+    }
+    LUNA_PRINTF(("txt = %s, tls_name = %s\n", txt, tls_name));
+    return tls_name;
 }
 

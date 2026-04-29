@@ -445,7 +445,7 @@ static unsigned char curve_x448[] = {
     0x06, 0x03, 0x2B, 0x65, 0x6F /* [634] x448 */
 };
 
-static CK_RV LunaPqcGen(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo, int is_kem) {
+static CK_RV LunaPqcGen(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo, int is_kem, int is_ecx) {
     CK_OBJECT_HANDLE publicObjectHandle = 0, privateObjectHandle = 0;
     CK_MECHANISM mechGen = {0, 0, 0};
     CK_KEY_PARAMS params = CKP_INVALID;
@@ -484,9 +484,7 @@ static CK_RV LunaPqcGen(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo, 
 
     if (is_kem) {
         ckaDerivePriv = ckaDerivePub = CK_TRUE;
-        if (luna_get_pqc_shim() ||
-                (keyctx->subtype == LUNA_PROV_SUBTYPE_x25519) ||
-                (keyctx->subtype == LUNA_PROV_SUBTYPE_x448) ) {
+        if (luna_get_pqc_shim() || is_ecx) {
             publicTemplate[publicTemplateCount].type = CKA_DERIVE;
             privateTemplate[privateTemplateCount].type = CKA_DERIVE;
         } else {

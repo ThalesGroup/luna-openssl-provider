@@ -19,15 +19,6 @@
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 
-//#include "internal/param_build_set.h"
-//#include <openssl/param_build.h>
-
-//#include "crypto/ecx.h"
-//#include "prov/implementations.h"
-//#include "prov/providercommon.h"
-//#include "prov/provider_ctx.h"
-//#include "prov/ecx.h"
-
 #include "lunaCommon.h"
 
 #ifdef S390X_EC_ASM
@@ -712,7 +703,7 @@ static void *ecx_gen(struct ecx_gen_ctx *gctx)
     } else
 #endif
     {
-        LUNA_PRINTF(("RAND_priv_bytes_ex\n"));
+        LUNA_PRINTF(("luna_prov_ecx_sig_derive_private\n"));
         /* was: if (RAND_priv_bytes_ex(gctx->libctx, privkey, key->keylen, 0) <= 0) */
         if (!luna_prov_ecx_sig_derive_private(gctx, key, privkey))
             goto err;

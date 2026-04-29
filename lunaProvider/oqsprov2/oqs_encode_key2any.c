@@ -26,6 +26,8 @@
 #include <openssl/asn1t.h>
 #include <openssl/types.h>
 
+#include "../luna_prov_minimal.h"
+
 #ifdef NDEBUG
 #    define OQS_ENC_PRINTF(a)
 #    define OQS_ENC_PRINTF2(a, b)
@@ -87,16 +89,22 @@ static PKCS8_PRIV_KEY_INFO *key_to_p8info(const void *key, int key_nid,
     int derlen;
     /* The final PKCS#8 info */
     PKCS8_PRIV_KEY_INFO *p8info = NULL;
+    int ok = 0;
 
     OQS_ENC_PRINTF("OQS ENC provider: key_to_p8info called\n");
 
-    if ((p8info = PKCS8_PRIV_KEY_INFO_new()) == NULL
-        || (derlen = k2d(key, &der)) <= 0
-        || !PKCS8_pkey_set0(p8info, OBJ_nid2obj(key_nid), 0,
-                            // doesn't work with oqs-openssl:
-                            //  params_type, params,
-                            // does work/interop:
-                            V_ASN1_UNDEF, NULL, der, derlen)) {
+    /* debugger-friendly rewrite */
+    p8info = PKCS8_PRIV_KEY_INFO_new();
+    if ( p8info != NULL ) {
+        derlen = k2d(key, &der);
+        if ( derlen > 0 ) {
+            int rc = PKCS8_pkey_set0(p8info, OBJ_nid2obj(key_nid), 0,
+                    V_ASN1_UNDEF, NULL, der, derlen);
+            ok = (rc == 1);
+        }
+    }
+
+    if (!ok) {
         ERR_raise(ERR_LIB_USER, ERR_R_MALLOC_FAILURE);
         PKCS8_PRIV_KEY_INFO_free(p8info);
         OPENSSL_free(der);
@@ -471,7 +479,10 @@ static int prepare_oqsx_params(const void *oqsxkey, int nid, int save,
         "OQS ENC provider: prepare_oqsx_params called with nid %d (tlsname: %s)\n",
         nid, k->tls_name);
 
-    if (k->tls_name && OBJ_sn2nid(k->tls_name) != nid) {
+    const char *sn = luna_short_name(k->tls_name);
+    int nid2 = OBJ_sn2nid(sn);
+    LUNA_PRINTF(("sn = %s, nid2 = %d\n", sn, nid2));
+    if (sn && nid2 != nid) {
         ERR_raise(ERR_LIB_USER, OQSPROV_R_INVALID_KEY);
         return 0;
     }
@@ -791,7 +802,8 @@ static int oqsx_pki_priv_to_der(const void *vxkey, unsigned char **pder)
             int nid, version;
             void *pval;
 
-            if ((name = get_cmpname(OBJ_sn2nid(oqsxkey->tls_name), i))
+            const char *sn = luna_short_name(oqsxkey->tls_name);
+            if ((name = get_cmpname(OBJ_sn2nid(sn), i))
                 == NULL) {
                 for (int j = 0; j <= i; j++) {
                     OPENSSL_cleanse(aString[j]->data, aString[j]->length);
@@ -857,7 +869,8 @@ static int oqsx_pki_priv_to_der(const void *vxkey, unsigned char **pder)
                 } else
                     buflen = oqsxkey->privkeylen_cmp[i];
             } else {
-                nid = OBJ_sn2nid(name);
+                const char *sn = luna_short_name(name);
+                nid = OBJ_sn2nid(sn);
                 buflen = oqsxkey->privkeylen_cmp[i] + oqsxkey->pubkeylen_cmp[i];
             }
 
@@ -1203,8 +1216,8 @@ static int oqsx_pki_priv_to_der(const void *vxkey, unsigned char **pder)
 #define p521_dilithium5_input_type               "p521_dilithium5"
 #define p521_dilithium5_pem_type                 "p521_dilithium5"
 #define mldsa44_evp_type                         0
-#define mldsa44_input_type                       "mldsa44"
-#define mldsa44_pem_type                         "mldsa44"
+#define mldsa44_input_type                       LUNA_EN_ML_DSA_44
+#define mldsa44_pem_type                         LUNA_EN_ML_DSA_44
 #define p256_mldsa44_evp_type                    0
 #define p256_mldsa44_input_type                  "p256_mldsa44"
 #define p256_mldsa44_pem_type                    "p256_mldsa44"
@@ -1227,8 +1240,8 @@ static int oqsx_pki_priv_to_der(const void *vxkey, unsigned char **pder)
 #define mldsa44_bp256_input_type                 "mldsa44_bp256"
 #define mldsa44_bp256_pem_type                   "mldsa44_bp256"
 #define mldsa65_evp_type                         0
-#define mldsa65_input_type                       "mldsa65"
-#define mldsa65_pem_type                         "mldsa65"
+#define mldsa65_input_type                       LUNA_EN_ML_DSA_65
+#define mldsa65_pem_type                         LUNA_EN_ML_DSA_65
 #define p384_mldsa65_evp_type                    0
 #define p384_mldsa65_input_type                  "p384_mldsa65"
 #define p384_mldsa65_pem_type                    "p384_mldsa65"
@@ -1248,8 +1261,8 @@ static int oqsx_pki_priv_to_der(const void *vxkey, unsigned char **pder)
 #define mldsa65_ed25519_input_type               "mldsa65_ed25519"
 #define mldsa65_ed25519_pem_type                 "mldsa65_ed25519"
 #define mldsa87_evp_type                         0
-#define mldsa87_input_type                       "mldsa87"
-#define mldsa87_pem_type                         "mldsa87"
+#define mldsa87_input_type                       LUNA_EN_ML_DSA_87
+#define mldsa87_pem_type                         LUNA_EN_ML_DSA_87
 #define p521_mldsa87_evp_type                    0
 #define p521_mldsa87_input_type                  "p521_mldsa87"
 #define p521_mldsa87_pem_type                    "p521_mldsa87"
@@ -1460,7 +1473,8 @@ static int key2any_encode(struct key2any_ctx_st *ctx, OSSL_CORE_BIO *cout,
                           i2d_of_void *key2der)
 {
     int ret = 0;
-    int type = OBJ_sn2nid(typestr);
+    const char *sn = luna_short_name(typestr);
+    int type = OBJ_sn2nid(sn);
     //OQSX_KEY *oqsk = (OQSX_KEY *)key;
 
     OQS_ENC_PRINTF3(
@@ -1469,6 +1483,7 @@ static int key2any_encode(struct key2any_ctx_st *ctx, OSSL_CORE_BIO *cout,
     OQS_ENC_PRINTF2("OQS ENC provider: key2any_encode called with pemname %s\n",
                     pemname);
 
+    LUNA_PRINTF(("key = 0x%p, type = %d, sn = %s\n", key, type, sn));
     if (key == NULL || type <= 0) {
         ERR_raise(ERR_LIB_USER, ERR_R_PASSED_NULL_PARAMETER);
     } else if (writer != NULL) {
@@ -1783,7 +1798,8 @@ static int oqsx_to_text(BIO *out, const void *key, int selection)
                 char label[200];
                 int i, privlen;
                 for (i = 0; i < okey->numkeys; i++) {
-                    if ((name = get_cmpname(OBJ_sn2nid(okey->tls_name), i))
+                    const char *sn = luna_short_name(okey->tls_name);
+                    if ((name = get_cmpname(OBJ_sn2nid(sn), i))
                         == NULL) {
                         ERR_raise(ERR_LIB_USER, OQSPROV_R_INVALID_KEY);
                         return 0;
@@ -1869,7 +1885,8 @@ static int oqsx_to_text(BIO *out, const void *key, int selection)
                 char label[200];
                 int i;
                 for (i = 0; i < okey->numkeys; i++) {
-                    if ((name = get_cmpname(OBJ_sn2nid(okey->tls_name), i))
+                    const char *sn = luna_short_name(okey->tls_name);
+                    if ((name = get_cmpname(OBJ_sn2nid(sn), i))
                         == NULL) {
                         ERR_raise(ERR_LIB_USER, OQSPROV_R_INVALID_KEY);
                         return 0;
@@ -2393,6 +2410,7 @@ MAKE_ENCODER(_ecp, p521_hqc256, oqsx, SubjectPublicKeyInfo, pem);
 MAKE_TEXT_ENCODER(_ecp, p521_hqc256);
 #endif /* OQS_KEM_ENCODERS */
 
+#ifdef LUNA_OQS_dilithium
 MAKE_ENCODER(, dilithium2, oqsx, EncryptedPrivateKeyInfo, der);
 MAKE_ENCODER(, dilithium2, oqsx, EncryptedPrivateKeyInfo, pem);
 MAKE_ENCODER(, dilithium2, oqsx, PrivateKeyInfo, der);
@@ -2442,6 +2460,7 @@ MAKE_ENCODER(, p521_dilithium5, oqsx, PrivateKeyInfo, pem);
 MAKE_ENCODER(, p521_dilithium5, oqsx, SubjectPublicKeyInfo, der);
 MAKE_ENCODER(, p521_dilithium5, oqsx, SubjectPublicKeyInfo, pem);
 MAKE_TEXT_ENCODER(, p521_dilithium5);
+#endif // LUNA_OQS_dilithium
 MAKE_ENCODER(, mldsa44, oqsx, EncryptedPrivateKeyInfo, der);
 MAKE_ENCODER(, mldsa44, oqsx, EncryptedPrivateKeyInfo, pem);
 MAKE_ENCODER(, mldsa44, oqsx, PrivateKeyInfo, der);

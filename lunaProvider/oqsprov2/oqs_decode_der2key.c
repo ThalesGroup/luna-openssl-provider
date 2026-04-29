@@ -239,7 +239,8 @@ static struct der2key_ctx_st *der2key_newctx(void *provctx,
         ctx->provctx = provctx;
         ctx->desc = desc;
         if (desc->evp_type == 0) {
-            ctx->desc->evp_type = OBJ_sn2nid(tls_name);
+            const char *sn = luna_short_name(tls_name);
+            ctx->desc->evp_type = OBJ_sn2nid(sn);
             OQS_DEC_PRINTF2(
                 "OQS DEC provider: der2key_newctx set evp_type to %d\n",
                 ctx->desc->evp_type);
@@ -699,6 +700,7 @@ MAKE_DECODER(_ecp, "p521_hqc256", p521_hqc256, oqsx, PrivateKeyInfo);
 MAKE_DECODER(_ecp, "p521_hqc256", p521_hqc256, oqsx, SubjectPublicKeyInfo);
 #endif /* OQS_KEM_ENCODERS */
 
+#ifdef LUNA_OQS_dilithium
 MAKE_DECODER(, "dilithium2", dilithium2, oqsx, PrivateKeyInfo);
 MAKE_DECODER(, "dilithium2", dilithium2, oqsx, SubjectPublicKeyInfo);
 MAKE_DECODER(, "p256_dilithium2", p256_dilithium2, oqsx, PrivateKeyInfo);
@@ -714,8 +716,9 @@ MAKE_DECODER(, "dilithium5", dilithium5, oqsx, PrivateKeyInfo);
 MAKE_DECODER(, "dilithium5", dilithium5, oqsx, SubjectPublicKeyInfo);
 MAKE_DECODER(, "p521_dilithium5", p521_dilithium5, oqsx, PrivateKeyInfo);
 MAKE_DECODER(, "p521_dilithium5", p521_dilithium5, oqsx, SubjectPublicKeyInfo);
-MAKE_DECODER(, "mldsa44", mldsa44, oqsx, PrivateKeyInfo);
-MAKE_DECODER(, "mldsa44", mldsa44, oqsx, SubjectPublicKeyInfo);
+#endif // LUNA_OQS_dilithium
+MAKE_DECODER(, LUNA_EN_ML_DSA_44, mldsa44, oqsx, PrivateKeyInfo);
+MAKE_DECODER(, LUNA_EN_ML_DSA_44, mldsa44, oqsx, SubjectPublicKeyInfo);
 MAKE_DECODER(, "p256_mldsa44", p256_mldsa44, oqsx, PrivateKeyInfo);
 MAKE_DECODER(, "p256_mldsa44", p256_mldsa44, oqsx, SubjectPublicKeyInfo);
 MAKE_DECODER(, "rsa3072_mldsa44", rsa3072_mldsa44, oqsx, PrivateKeyInfo);
@@ -730,8 +733,8 @@ MAKE_DECODER(, "mldsa44_p256", mldsa44_p256, oqsx, PrivateKeyInfo);
 MAKE_DECODER(, "mldsa44_p256", mldsa44_p256, oqsx, SubjectPublicKeyInfo);
 MAKE_DECODER(, "mldsa44_bp256", mldsa44_bp256, oqsx, PrivateKeyInfo);
 MAKE_DECODER(, "mldsa44_bp256", mldsa44_bp256, oqsx, SubjectPublicKeyInfo);
-MAKE_DECODER(, "mldsa65", mldsa65, oqsx, PrivateKeyInfo);
-MAKE_DECODER(, "mldsa65", mldsa65, oqsx, SubjectPublicKeyInfo);
+MAKE_DECODER(, LUNA_EN_ML_DSA_65, mldsa65, oqsx, PrivateKeyInfo);
+MAKE_DECODER(, LUNA_EN_ML_DSA_65, mldsa65, oqsx, SubjectPublicKeyInfo);
 MAKE_DECODER(, "p384_mldsa65", p384_mldsa65, oqsx, PrivateKeyInfo);
 MAKE_DECODER(, "p384_mldsa65", p384_mldsa65, oqsx, SubjectPublicKeyInfo);
 MAKE_DECODER(, "mldsa65_pss3072", mldsa65_pss3072, oqsx, PrivateKeyInfo);
@@ -744,8 +747,8 @@ MAKE_DECODER(, "mldsa65_bp256", mldsa65_bp256, oqsx, PrivateKeyInfo);
 MAKE_DECODER(, "mldsa65_bp256", mldsa65_bp256, oqsx, SubjectPublicKeyInfo);
 MAKE_DECODER(, "mldsa65_ed25519", mldsa65_ed25519, oqsx, PrivateKeyInfo);
 MAKE_DECODER(, "mldsa65_ed25519", mldsa65_ed25519, oqsx, SubjectPublicKeyInfo);
-MAKE_DECODER(, "mldsa87", mldsa87, oqsx, PrivateKeyInfo);
-MAKE_DECODER(, "mldsa87", mldsa87, oqsx, SubjectPublicKeyInfo);
+MAKE_DECODER(, LUNA_EN_ML_DSA_87, mldsa87, oqsx, PrivateKeyInfo);
+MAKE_DECODER(, LUNA_EN_ML_DSA_87, mldsa87, oqsx, SubjectPublicKeyInfo);
 MAKE_DECODER(, "p521_mldsa87", p521_mldsa87, oqsx, PrivateKeyInfo);
 MAKE_DECODER(, "p521_mldsa87", p521_mldsa87, oqsx, SubjectPublicKeyInfo);
 MAKE_DECODER(, "mldsa87_p384", mldsa87_p384, oqsx, PrivateKeyInfo);
