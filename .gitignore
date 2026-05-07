@@ -14,3 +14,14 @@ gem-samples/sautil/sautil
 lunaProvider/makefile
 luna.tar.gz
 *.keep.*
+*.dll
+*.exe
+*.exp
+*.ilk
+*.lib
+*.obj
+*.pdb
+*.tmp
+LUNAlocal/
+liboqs-*.tar.gz
+openssl-*.tar.gz

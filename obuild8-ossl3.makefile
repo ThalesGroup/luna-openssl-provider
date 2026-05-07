@@ -19,13 +19,12 @@
 #
 
 
-# openssl 3.2.1 or higher, with builtin fips module
-VERSION=3.4.1
+# openssl 3.5.5 or higher, with builtin fips module
+VERSION=3.5.5
 
 
-# liboqs 0.12.0 or higher, for FW ml-dsa
-#LIBOQS_VERSION=0.10.0
-LIBOQS_VERSION=0.12.0
+# liboqs 0.15.0 or higher, for ml-dsa
+LIBOQS_VERSION=0.15.0
 
 
 # openssl pre-configure options
@@ -41,10 +40,10 @@ FILENAME=obuild8-ossl3.makefile
 # openssl post-configure options
 # NOTE: set --openssldir and --prefix to the same value.
 CFG_BASEOPTS_NO=no-asm
-CFG_BASEOPTS_YES=$(CFG_FIPS)
+CFG_BASEOPTS_YES=$(CFG_FIPS) enable-trace
 CFG_INSTALLROOT=c:\cygwin\usr\local
 CFG_INSTALLDIR=$(CFG_INSTALLROOT)\ssl
-CFG_BASEOPTS=$(CFG_BASEOPTS_YES)  $(CFG_BASEOPTS_NO)  --openssldir=$(CFG_INSTALLDIR) --prefix=$(CFG_INSTALLDIR)
+CFG_BASEOPTS=$(CFG_BASEOPTS_YES)  $(CFG_BASEOPTS_NO)  --openssldir=$(CFG_INSTALLDIR) --prefix=$(CFG_INSTALLDIR) --debug
 CFG_SAUTILDIR=$(CFG_INSTALLROOT)\ssl\sautil
 
 
@@ -120,6 +119,24 @@ openssl-win64:
 	cd "openssl-build\openssl-$(VERSION)"
 	  nmake build_sw
 	  nmake install_sw install_ssldirs install_fips
+	  cd ..\..
+	@echo
+
+
+# build libs only (shortcut for debugging libs)
+openssl-libs-win64:
+	cd "openssl-build\openssl-$(VERSION)"
+	  nmake build_libs_nodep
+	  nmake install_runtime_libs
+	  cd ..\..
+	@echo
+
+
+# build apps only (shortcut for debugging apps)
+openssl-apps-win64:
+	cd "openssl-build\openssl-$(VERSION)"
+	  nmake build_programs_nodep
+	  nmake install_programs
 	  cd ..\..
 	@echo
 
@@ -214,7 +231,7 @@ cleantemp:
 
 # clean all temporary files
 cleanall clean: cleantemp
-	rm -f unpack*.tmp patch*.tmp
+	rm -f unpack.tmp patch.tmp
 	rm -rf "openssl-build\openssl-$(VERSION)"
 	rm -rf "openssl-build\liboqs-$(LIBOQS_VERSION)"
 	@echo

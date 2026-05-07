@@ -22,7 +22,7 @@
 
 /* luna provider details as of toolkit 1.6 */
 #define LUNA_PROV_NAME_SZ "Thales Luna Provider"
-#define LUNA_PROV_VERSION_SZ "1.7.6.1"
+#define LUNA_PROV_VERSION_SZ "1.7.7.1"
 #define LUNA_PROV_SZ "lunaprov"
 #define LUNA_PROV_CONCAT_SZ(a_, b_) a_ b_
 

@@ -1111,6 +1111,7 @@ struct extracted_param_data_st {
 
 static int luna_store_handle_load_result(const OSSL_PARAM params[], struct file_load_data_st *data)
 {
+#ifdef LUNA_OQS
     struct ossl_load_result_data_st *cbdata = data->object_cbarg;
     const OSSL_PARAM *p = NULL;
     struct extracted_param_data_st helper_data;
@@ -1187,6 +1188,7 @@ static int luna_store_handle_load_result(const OSSL_PARAM params[], struct file_
         outParams[3] = OSSL_PARAM_construct_end();
         return data->object_cb(outParams, data->object_cbarg);
     }
+#endif // LUNA_OQS
 
     return 0;
 }

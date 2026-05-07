@@ -96,7 +96,7 @@ static int ecx_init(void *vecxctx, void *vkey,
         return 0;
     }
 
-#if 0
+#if defined(LUNA_REFUSE_PRIVATE_KEY)
     // FIXME:FIXME: the proper solution is to never hook up the provider entry point to receive this request in the first place; i.e.,
     // a runtime decision, based on one or more config items (this may get complicated for hybrid algorithms).
     /* Check if this is an HSM key - reject software/ephemeral keys.
@@ -115,7 +115,7 @@ static int ecx_init(void *vecxctx, void *vkey,
         ossl_ecx_key_free(key);
         return 0;
     }
-#endif
+#endif /* LUNA_REFUSE_PRIVATE_KEY */
 
     ossl_ecx_key_free(ecxctx->key);
     ecxctx->key = key;

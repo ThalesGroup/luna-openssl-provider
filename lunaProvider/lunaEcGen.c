@@ -296,12 +296,13 @@ int ec_has(const void *keydata, int selection)
     const EC_KEY *ec = keydata;
     int ok = 1;
 
+    LUNA_PRINTF(("\n"));
     if (!luna_prov_is_running() || ec == NULL)
         return 0;
     if ((selection & EC_POSSIBLE_SELECTIONS) == 0)
         return 1; /* the selection is not missing */
 
-#if 0
+#if defined(LUNA_REFUSE_PRIVATE_KEY)
     // FIXME:FIXME: the proper solution is to never hook up the provider entry point to receive this request in the first place; i.e.,
     // a runtime decision, based on one or more config items (this may get complicated for hybrid algorithms).
     /* For private key selection, check if this is an HSM key.
@@ -320,7 +321,7 @@ int ec_has(const void *keydata, int selection)
         }
         /* HSM key - continue with normal checks */
     }
-#endif
+#endif /* LUNA_REFUSE_PRIVATE_KEY */
 
     if ((selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY) != 0)
         ok = ok && (EC_KEY_get0_public_key(ec) != NULL);

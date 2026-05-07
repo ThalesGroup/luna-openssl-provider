@@ -252,11 +252,13 @@ static void LunaPqcEncodeTemplate(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *
     LUNA_ASSERT (pkeyinfo->privkeylen >= LUNA_PQC_PRIVATEBLOB_BYTES_32);
     if (pkeyinfo->privkeylen < LUNA_PQC_PRIVATEBLOB_BYTES_64) {
         LunaPqcEncodePadV2((CK_BYTE *)pkeyinfo->privkey, pkeyinfo->privkeylen);
-        return LunaPqcEncodeTemplateV2(keyctx, pkeyinfo, pPublic, pPrivate);
+        LunaPqcEncodeTemplateV2(keyctx, pkeyinfo, pPublic, pPrivate);
+        return;
     }
     LUNA_ASSERT (pkeyinfo->privkeylen >= LUNA_PQC_PRIVATEBLOB_BYTES_64);
     LunaPqcEncodePadV1((CK_BYTE *)pkeyinfo->privkey, pkeyinfo->privkeylen);
-    return LunaPqcEncodeTemplateV1(keyctx, pkeyinfo, pPublic, pPrivate);
+    LunaPqcEncodeTemplateV1(keyctx, pkeyinfo, pPublic, pPrivate);
+    return;
 }
 
 static CK_RV LunaPqcDecodeTemplate(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo,

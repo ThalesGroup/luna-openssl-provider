@@ -27,6 +27,7 @@ set BINPATH=c:\cygwin\usr\local
 set SAUTILEXE=%BINPATH%\ssl\sautil\bin\sautil
 set OPENSSLEXE=%BINPATH%\ssl\bin\openssl
 set IN_SOFTWARE=0
+set IN_PROVIDER=0
 
 rem # choose a curve
 rem #   common curves { prime256v1 , secp384r1 , secp521r1 }
@@ -35,6 +36,11 @@ rem #   other large curves { sect409r1 , c2tnb431r1 , sect571r1 }
 set CURVE_NAME=secp521r1
 
 
+
+if "%2" == "" goto ok_provider
+if NOT "%2" == "--provider" goto fail_usage
+set IN_PROVIDER=1
+:ok_provider
 
 if NOT "%1" == "--test-all" goto ok_test_all
 
@@ -78,12 +84,17 @@ if EXIST tmpecdsakey.pem goto ok_tmpecdsakey
 :ok_tmpecdsakey
 
 echo ""
-echo "Running ./engineperf..."
-if     "%IN_SOFTWARE%" == "1" .\engineperf --fips=0 --threads=15 --seconds=2 --engine   --software
-rem if     "%IN_SOFTWARE%" == "1"     .\engineperf --fips=0 --threads=15 --seconds=2 --provider --software
-if NOT "%IN_SOFTWARE%" == "1" .\engineperf --fips=0 --threads=15 --seconds=2 --engine   --load_private
-rem if NOT "%IN_SOFTWARE%" == "1"     .\engineperf --fips=0 --threads=15 --seconds=2 --provider
+if NOT "%IN_SOFTWARE%" == "1" goto ok_engineperf_hw
+echo "Running engineperf in software..."
+if NOT "%IN_PROVIDER%" == "1" .\engineperf --fips=0 --threads=15 --seconds=2 --engine   --software
+if     "%IN_PROVIDER%" == "1" .\engineperf --fips=0 --threads=15 --seconds=2 --provider --software
 if NOT errorlevel 0 goto fail_cmd 
+:ok_engineperf_hw
+echo "Running engineperf in hardware..."
+if NOT "%IN_PROVIDER%" == "1" .\engineperf --fips=0 --threads=15 --seconds=2 --engine   --load_private
+if     "%IN_PROVIDER%" == "1" .\engineperf --fips=0 --threads=15 --seconds=2 --provider
+if NOT errorlevel 0 goto fail_cmd 
+:ok_engineperf_done
 
 echo "Done."
 goto done
@@ -122,10 +133,10 @@ goto done
 
 :fail_usage
 echo ""
-echo "Unrecognized option: %1"
-echo "Valid options are:"
-echo "  --test-all"
-echo "  --delete-all"
+echo "Unrecognized option: %1 %2"
+echo "Usage:"
+echo "  cmd /c engineperf-test.bat --test-all [ --provider ]"
+echo "  cmd /c engineperf-test.bat --delete-all"
 :fail_cmd
 echo ""
 echo "Command failed."

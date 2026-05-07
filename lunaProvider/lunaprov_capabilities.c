@@ -124,10 +124,6 @@ typedef struct oqs_sigalg_constants_st {
     int maxtls;              /* Maximum TLS version (or 0 for undefined) */
 } OQS_SIGALG_CONSTANTS;
 
-static OQS_SIGALG_CONSTANTS oqs_sigalg_list[] = {
-    // ad-hoc assignments - take from OQS generate data structures
-};
-
 static int oqs_group_capability(OSSL_CALLBACK *cb, void *arg)
 {
     size_t i;
@@ -141,6 +137,9 @@ static int oqs_group_capability(OSSL_CALLBACK *cb, void *arg)
 }
 
 #ifdef LUNA_CAPABILITY_TLS_SIGALG_NAME
+static OQS_SIGALG_CONSTANTS oqs_sigalg_list[] = {
+    // ad-hoc assignments - take from OQS generate data structures
+};
 #    define OQS_SIGALG_ENTRY(tlsname, realname, algorithm, oid, idx)          \
         {                                                                     \
             OSSL_PARAM_utf8_string(OSSL_CAPABILITY_TLS_SIGALG_IANA_NAME,      \
