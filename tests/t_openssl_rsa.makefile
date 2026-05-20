@@ -197,7 +197,6 @@ sign4:
 # decrypt pkcs1
 decrypt1:
 	rm -f message.enc message.dec
-	#openssl rand -hex -out message.txt 64
 	openssl pkeyutl $(SW_ENGINE) -encrypt -in message.txt -inkey tmp.pkey -out message.enc
 	openssl pkeyutl $(HW_ENGINE) $(HW_KEYFORM) -decrypt -in message.enc -inkey tmp.pkey -out message.dec
 	-diff -q -s message.txt message.dec

@@ -134,6 +134,9 @@ static int ecx_has(const void *keydata, int selection)
 
     LUNA_PRINTF(("ossl_prov_is_running\n"));
     if (ossl_prov_is_running() && key != NULL) {
+#if defined(LUNA_REFUSE_PRIVATE_KEY)
+    // FIXME:FIXME: the proper solution is to never hook up the provider entry point to receive this request in the first place; i.e.,
+    // a runtime decision, based on one or more config items (this may get complicated for hybrid algorithms).
         /* For private key selection, check if this is an HSM key.
          * Reject software/ephemeral keys - let default provider handle them.
          * This is critical for TLS 1.3 ephemeral X25519/X448 keys.
@@ -150,6 +153,7 @@ static int ecx_has(const void *keydata, int selection)
             }
             /* HSM key - continue with normal checks */
         }
+#endif /* LUNA_REFUSE_PRIVATE_KEY */
 
         /*
          * ECX keys always have all the parameters they need (i.e. none).

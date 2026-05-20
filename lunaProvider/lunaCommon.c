@@ -3657,9 +3657,11 @@ static CK_RV luna_pqc_rng_hw_cache_locked(uint8_t *out, size_t outlen) {
 }
 
 static CK_RV luna_pqc_rng_hw_cache(uint8_t *out, size_t outlen) {
+    CK_RV rv;
     lunasys_mutex_enter(&luna_pqc_rng_mu);
-    luna_pqc_rng_hw_cache_locked(out, outlen);
+    rv = luna_pqc_rng_hw_cache_locked(out, outlen);
     lunasys_mutex_exit(&luna_pqc_rng_mu);
+    return rv;
 }
 
 static CK_RV luna_pqc_rng_hw_int(uint8_t *out, size_t outlen) {

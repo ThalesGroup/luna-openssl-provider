@@ -9,10 +9,6 @@
 *
 \****************************************************************************/
 
-#ifndef _REENTRANT
-#error "ERROR: _REENTRANT not defined!" || foo
-#endif
-
 #define OPENSSL_SUPPRESS_DEPRECATED
 #include "engineperf.h"
 #include "e_gem.h"
@@ -52,8 +48,8 @@ static int engineperf_FIPS_mode_set(int r);
 /* defines... */
 
 #define LOCAL_APP_NAME "engineperf"
-#define LOCAL_APP_VERSION "v4.0.0-1"
-#define LOCAL_APP_COPYRIGHT "2009-2024"
+#define LOCAL_APP_VERSION "v4.1.0-101"
+#define LOCAL_APP_COPYRIGHT "2009-2026"
 #define LOCAL_MAX_STRING (255)  /* bytes */
 #define LOCAL_MAX_BUFFER (8192) /* bytes */
 #define LOCAL_MAX_THREAD (15)   /* 15 = apache worker model */
@@ -382,46 +378,66 @@ static OSSL_PROVIDER *fips = NULL;
 static OSSL_PROVIDER *dflt = NULL; /* default provider */
 static OSSL_PROVIDER *base = NULL;
 static OSSL_LIB_CTX *libctx = NULL;
+static OSSL_PROVIDER *nullprov = NULL; /* null provider wipes out basic algorithms { RNG, SHA2, etc } */
 
 /* load openssl3 provider */
 static const char *engineperf_provider_load(OSSL_PROVIDER **prov) {
    OSSL_PROVIDER *luna = NULL;
 
+   fprintf(stdout, "NOTE: using providers \"%s\". \n", (char *)local_param.providers);
+
+   /* TODO: loading null provider (and setting libctx) is experimental */
+   if (strstr(local_param.providers, "null") != NULL) {
+      nullprov = OSSL_PROVIDER_load(NULL, "null");
+      if (nullprov == NULL) {
+         return "Failed to load null provider";
+      }
+      libctx = OSSL_LIB_CTX_new();
+      if (libctx == NULL) {
+         return "Failed to create library context";
+      }
+   }
+
    /* load multiple providers, lunaprov first */
-   luna = OSSL_PROVIDER_load(NULL, "lunaprov");
-   if (luna == NULL) {
-      return "Failed to load lunaprov provider";
+   if (strstr(local_param.providers, "lunaprov") != NULL) {
+      luna = OSSL_PROVIDER_load(libctx, "lunaprov");
+      if (luna == NULL) {
+         return "Failed to load lunaprov provider";
+      }
+      *prov = luna;
    }
 
    /* load fips provider */
    if (strstr(local_param.providers, "fips") != NULL) {
-      fips = OSSL_PROVIDER_load(NULL, "fips");
+      fips = OSSL_PROVIDER_load(libctx, "fips");
       if (fips == NULL) {
-         OSSL_PROVIDER_unload(luna);
          return "Failed to load fips provider";
       }
    }
 
    /* load default provider */
    if (strstr(local_param.providers, "default") != NULL) {
-      dflt = OSSL_PROVIDER_load(NULL, "default");
+      dflt = OSSL_PROVIDER_load(libctx, "default");
       if (dflt == NULL) {
-         OSSL_PROVIDER_unload(luna);
          return "Failed to load default provider";
       }
    }
 
    /* load base provider */
    if (strstr(local_param.providers, "base") != NULL) {
-      base = OSSL_PROVIDER_load(NULL, "base");
+      base = OSSL_PROVIDER_load(libctx, "base");
       if (base == NULL) {
-         OSSL_PROVIDER_unload(luna);
          return "Failed to load base provider";
       }
    }
 
-   *prov = luna;
-   libctx = OSSL_LIB_CTX_new();
+   /* TODO: engineperf needs EVP_set_default_properties */
+   if (luna != NULL) {
+      if (EVP_set_default_properties(libctx, "?provider=lunaprov") <= 0) {
+         return "Failed to load base provider";
+      }
+   }
+
    return NULL; /* success */
 }
 
@@ -1980,7 +1996,7 @@ int main(int argc, char **argv) {
    fprintf(stdout, "NOTE: number of threads = %u. \n", (unsigned)local_param.threads);
 
    /* init openssl */
-#if defined(LUNA_OSSL_CLEANUP)
+#if defined(LUNA_OSSL3)
    /* best practice: set OPENSSL_INIT_NO_ATEXIT but not OPENSSL_INIT_LOAD_CONFIG */
    OPENSSL_init_crypto(OPENSSL_INIT_NO_ATEXIT, NULL);
 #else
