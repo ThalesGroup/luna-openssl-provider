@@ -37,6 +37,14 @@
 // enable old tls groups, consistent with pqc hybrid
 #define LUNA_TLS_GROUPS_OLD 1
 
+// tls group name is mandatory (report new groups plus standard groups)
+#define LUNA_CAPABILITY_TLS_GROUP_NAME 1
+
+// tls sigalg name is optional (report new algorithms - there are some)
+#ifdef OSSL_CAPABILITY_TLS_SIGALG_NAME
+#define LUNA_CAPABILITY_TLS_SIGALG_NAME 1
+#endif
+
 // group constant
 typedef struct oqs_group_constants_st {
     unsigned int group_id; /* Group ID */
@@ -135,7 +143,7 @@ static OQS_GROUP_CONSTANTS oqs_group_list[] = {
     { OSSL_TLS_GROUP_ID_brainpoolP512r1, 256, TLS1_VERSION, TLS1_2_VERSION, DTLS1_VERSION, DTLS1_2_VERSION, 0 },
     { OSSL_TLS_GROUP_ID_x25519, 128, TLS1_VERSION, 0, DTLS1_VERSION, 0, 0 },
     { OSSL_TLS_GROUP_ID_x448, 224, TLS1_VERSION, 0, DTLS1_VERSION, 0, 0 },
-#endif
+#endif /* LUNA_TLS_GROUPS_OLD */
 
 };
 
@@ -809,8 +817,10 @@ static int oqs_sigalg_capability(OSSL_CALLBACK *cb, void *arg)
 int luna_oqs_provider_get_capabilities(void *provctx, const char *capability,
                                   OSSL_CALLBACK *cb, void *arg)
 {
+#ifdef LUNA_CAPABILITY_TLS_GROUP_NAME
     if (strcasecmp(capability, "TLS-GROUP") == 0)
         return oqs_group_capability(cb, arg);
+#endif /* LUNA_CAPABILITY_TLS_GROUP_NAME */
 
 #ifdef OSSL_CAPABILITY_TLS_SIGALG_NAME
     if (strcasecmp(capability, "TLS-SIGALG") == 0)
@@ -821,7 +831,7 @@ int luna_oqs_provider_get_capabilities(void *provctx, const char *capability,
         stderr,
         "Warning: OSSL_CAPABILITY_TLS_SIGALG_NAME not defined: OpenSSL version used that does not support pluggable signature capabilities.\nUpgrading OpenSSL installation recommended to enable QSC TLS signature support.\n\n");
 #    endif /* NDEBUG */
-#endif     /* OSSL_CAPABILITY_TLS_SIGALG_NAME */
+#endif /* OSSL_CAPABILITY_TLS_SIGALG_NAME */
 
     /* We don't support this capability */
     return 0;

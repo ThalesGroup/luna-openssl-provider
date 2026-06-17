@@ -795,6 +795,8 @@ static struct _saved_dsa {
 #endif /* LUNA_DSA_USE_EVP_PKEY_METHS */
 
 #if defined(LUNA_OSSL_ECDSA)
+static int (*saved_ecdsa_sign)(int type, const unsigned char *dgst, int dlen,
+      unsigned char *sigbuf, unsigned int *siglen, const BIGNUM *inv, const BIGNUM *rp, EC_KEY *dsa) = NULL;
 static ECDSA_SIG *(*saved_ecdsa_do_sign)(const unsigned char *dgst, int dlen, const BIGNUM *, const BIGNUM *,
                                          EC_KEY *eckey) = NULL;
 static int (*saved_ecdsa_sign_setup)(EC_KEY *eckey, BN_CTX *ctx_in, BIGNUM **kinvp, BIGNUM **rp) = NULL;
@@ -6268,7 +6270,7 @@ const char *szLunaEngineComment46 = "EnablePqcShim was added (default=0)";
 const char *szLunaEngineComment47 = "DelegateHwPqcKemEncapToSw was added (default=0)";
 const char *szLunaEngineComment48 = "DelegateSwPqcKemEncapRngToHw was added (default=0)";
 const char *szLunaEngineComment49 = "DisableEc is an alias for DisableEcdsa";
-const char *szLunaEngineCommentDevel = "CommentDevel: openssl-3.5.0-sw300";
+const char *szLunaEngineCommentDevel = "CommentDevel: openssl-3.5.0-sw400";
 
 /* convert to CK_ULONG from ByteArray (little-endian) */
 static CK_ULONG luna_CK_ULONG_from_ByteArrayLE(CK_BYTE_PTR src, CK_ULONG srclen_) {
@@ -8236,14 +8238,15 @@ err:
 #undef LUNA_FUNC_NAME
 #define LUNA_FUNC_NAME "luna_ecdsa_sign"
 
-/* ECDSA sign (introduced by OpenSSL 1.1) */
+/* ECDSA sign (introduced by OpenSSL 1.1) is a wrapper function for do_sign */
 /* FIXME: type is unused!? */
 static int luna_ecdsa_sign(int type, const unsigned char *dgst, int dlen, unsigned char *sigbuf, unsigned int *siglen, const BIGNUM *inv, const BIGNUM *rp, EC_KEY *dsa) {
    ECDSA_SIG *sig = NULL;
+   /* NOTE: no need to call saved_ecdsa_sign (for sw keys) since luna_ecdsa_do_sign handles both sw/hw */
    sig = luna_ecdsa_do_sign(dgst, dlen, inv, rp, dsa);
    if (sig == NULL)
       return 0;
-   *siglen = i2d_ECDSA_SIG(sig, &sigbuf);
+   *siglen = i2d_ECDSA_SIG(sig, (sigbuf == NULL ? NULL : &sigbuf) );
    ECDSA_SIG_free(sig);
    return 1;
 }
@@ -8251,7 +8254,7 @@ static int luna_ecdsa_sign(int type, const unsigned char *dgst, int dlen, unsign
 #undef LUNA_FUNC_NAME
 #define LUNA_FUNC_NAME "luna_ecdsa_verify"
 
-/* ECDSA verify (introduced by OpenSSL 1.1) */
+/* ECDSA verify (introduced by OpenSSL 1.1) is a wrapper function for do_verify */
 /* FIXME: type is unused!? */
 static int luna_ecdsa_verify(int type, const unsigned char *dgst, int dlen, const unsigned char *sigbuf, int siglen, EC_KEY *dsa) {
    ECDSA_SIG *s = NULL;
@@ -8267,6 +8270,7 @@ static int luna_ecdsa_verify(int type, const unsigned char *dgst, int dlen, cons
    derlen = i2d_ECDSA_SIG(s, &der);
    if (derlen != siglen || memcmp(sigbuf, der, derlen) != 0)
       goto err;
+   /* NOTE: no need to call saved_ecdsa_verify (for sw keys) since luna_ecdsa_do_verify handles both sw/hw */
    ret = luna_ecdsa_do_verify(dgst, dlen, s, dsa);
 err:
    if (der != NULL) {

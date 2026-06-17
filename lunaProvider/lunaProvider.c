@@ -22,7 +22,7 @@
 
 /* luna provider details as of toolkit 1.6 */
 #define LUNA_PROV_NAME_SZ "Thales Luna Provider"
-#define LUNA_PROV_VERSION_SZ "1.7.7.1"
+#define LUNA_PROV_VERSION_SZ "1.7.8.3"
 #define LUNA_PROV_SZ "lunaprov"
 #define LUNA_PROV_CONCAT_SZ(a_, b_) a_ b_
 
@@ -908,6 +908,7 @@ static const OSSL_ALGORITHM luna_kdfs[] = {
 
 // list of key exchange algorithms reported to application
 static const OSSL_ALGORITHM luna_keyexch[] = {
+#ifdef LUNA_KEYEXCH
 #ifndef OPENSSL_NO_EC
     { PROV_NAMES_ECDH, LUNA_PROV_EQUALS_SZ, luna_ecdh_keyexch_functions },
 # ifdef LUNA_OQS
@@ -916,6 +917,7 @@ static const OSSL_ALGORITHM luna_keyexch[] = {
 # endif /* LUNA_OQS */
 #endif /* OPENSSL_NO_EC */
     // NOTE: { PROV_NAMES_HKDF, LUNA_PROV_EQUALS_SZ, luna_ossl_kdf_hkdf_keyexch_functions },
+#endif /* LUNA_KEYEXCH */
     { NULL, NULL, NULL }
 };
 
@@ -948,6 +950,7 @@ static const OSSL_ALGORITHM luna_signature[] = {
 # endif /* OPENSSL_NO_SM2 */
 #endif /* OPENSSL_NO_EC */
 #ifdef LUNA_OQS
+#ifdef LUNA_OQS_dilithium
 #ifdef OQS_ENABLE_SIG_dilithium_2
     SIGALG("dilithium2", 128, oqs_signature_functions),
     SIGALG("p256_dilithium2", 128, oqs_signature_functions),
@@ -961,6 +964,7 @@ static const OSSL_ALGORITHM luna_signature[] = {
     SIGALG("dilithium5", 256, oqs_signature_functions),
     SIGALG("p521_dilithium5", 256, oqs_signature_functions),
 #endif
+#endif /* LUNA_OQS_dilithium */
 #ifdef OQS_ENABLE_SIG_ml_dsa_44
     SIGALG(LUNA_PROV_NAMES_ML_DSA_44, 128, oqs_signature_functions),
     SIGALG("p256_mldsa44", 128, oqs_signature_functions),
@@ -987,6 +991,7 @@ static const OSSL_ALGORITHM luna_signature[] = {
     SIGALG("mldsa87_bp384", 384, oqs_signature_functions),
     SIGALG("mldsa87_ed448", 192, oqs_signature_functions),
 #endif
+#ifdef LUNA_OQS_falcon
 #ifdef OQS_ENABLE_SIG_falcon_512
     SIGALG("falcon512", 128, oqs_signature_functions),
     SIGALG("p256_falcon512", 128, oqs_signature_functions),
@@ -1005,6 +1010,8 @@ static const OSSL_ALGORITHM luna_signature[] = {
     SIGALG("falconpadded1024", 256, oqs_signature_functions),
     SIGALG("p521_falconpadded1024", 256, oqs_signature_functions),
 #endif
+#endif /* LUNA_OQS_falcon */
+#ifdef LUNA_OQS_sphincs
 #ifdef OQS_ENABLE_SIG_sphincs_sha2_128f_simple
     SIGALG("sphincssha2128fsimple", 128, oqs_signature_functions),
     SIGALG("p256_sphincssha2128fsimple", 128, oqs_signature_functions),
@@ -1024,6 +1031,7 @@ static const OSSL_ALGORITHM luna_signature[] = {
     SIGALG("p256_sphincsshake128fsimple", 128, oqs_signature_functions),
     SIGALG("rsa3072_sphincsshake128fsimple", 128, oqs_signature_functions),
 #endif
+#endif /* LUNA_OQS_sphincs */
 #endif /* LUNA_OQS */
     { NULL, NULL, NULL }
 };
@@ -1037,8 +1045,10 @@ static const OSSL_ALGORITHM luna_asym_cipher[] = {
 };
 
 static const OSSL_ALGORITHM luna_asym_kem[] = {
+#ifdef LUNA_ASYM_KEM
     // NOTE: { PROV_NAMES_RSA, LUNA_PROV_EQUALS_SZ, luna_rsa_asym_kem_functions },
 #ifdef LUNA_OQS
+#ifdef LUNA_OQS_kyber
 #ifdef OQS_ENABLE_KEM_kyber_512
     KEMBASEALG(kyber512, 128)
     KEMHYBALG(p256_kyber512, 128)
@@ -1055,6 +1065,7 @@ static const OSSL_ALGORITHM luna_asym_kem[] = {
     KEMBASEALG(kyber1024, 256)
     KEMHYBALG(p521_kyber1024, 256)
 #endif
+#endif /* LUNA_OQS_kyber */
 #ifdef OQS_ENABLE_KEM_ml_kem_512
     KEMBASEALG(mlkem512, 128)
     KEMHYBALG(p256_mlkem512, 128)
@@ -1073,6 +1084,7 @@ static const OSSL_ALGORITHM luna_asym_kem[] = {
     KEMHYBALG(p384_mlkem1024, 192)
 #endif
 #endif /* LUNA_OQS */
+#endif /* LUNA_ASYM_KEM */
     { NULL, NULL, NULL }
 };
 
@@ -1082,7 +1094,7 @@ static const OSSL_ALGORITHM luna_keymgmt[] = {
 #ifndef OPENSSL_NO_DSA
     { PROV_NAMES_DSA, LUNA_PROV_EQUALS_SZ, luna_dsa_keymgmt_functions,
       PROV_DESCS_DSA},
-#endif
+#endif /* OPENSSL_NO_DSA */
     { PROV_NAMES_RSA, LUNA_PROV_EQUALS_SZ, luna_rsa_keymgmt_functions,
       PROV_DESCS_RSA },
     { PROV_NAMES_RSA_PSS, LUNA_PROV_EQUALS_SZ, luna_rsapss_keymgmt_functions,
@@ -1092,8 +1104,10 @@ static const OSSL_ALGORITHM luna_keymgmt[] = {
       PROV_DESCS_EC },
 # ifndef OPENSSL_NO_ECX
 #  ifdef LUNA_OQS
+#   ifdef LUNA_KEYEXCH
     { PROV_NAMES_X25519, LUNA_PROV_EQUALS_SZ, luna_x25519_keymgmt_functions, PROV_DESCS_X25519 },
     { PROV_NAMES_X448, LUNA_PROV_EQUALS_SZ, luna_x448_keymgmt_functions, PROV_DESCS_X448 },
+#   endif /* LUNA_KEYEXCH */
     { PROV_NAMES_ED25519, LUNA_PROV_EQUALS_SZ, luna_ed25519_keymgmt_functions,
       PROV_DESCS_ED25519 },
     { PROV_NAMES_ED448, LUNA_PROV_EQUALS_SZ, luna_ed448_keymgmt_functions,
@@ -1103,7 +1117,7 @@ static const OSSL_ALGORITHM luna_keymgmt[] = {
 #endif /* OPENSSL_NO_EC */
 #ifndef OPENSSL_NO_SM2
     //{ PROV_NAMES_SM2, LUNA_PROV_EQUALS_SZ, luna_sm2_keymgmt_functions, PROV_DESCS_SM2 },
-#endif
+#endif /* OPENSSL_NO_SM2 */
 
 #ifdef LUNA_OQS
 #ifdef LUNA_OQS_dilithium
@@ -1147,6 +1161,7 @@ static const OSSL_ALGORITHM luna_keymgmt[] = {
     SIGALG("mldsa87_bp384", 384, oqs_mldsa87_bp384_keymgmt_functions),
     SIGALG("mldsa87_ed448", 192, oqs_mldsa87_ed448_keymgmt_functions),
 #endif
+#ifdef LUNA_OQS_falcon
 #ifdef OQS_ENABLE_SIG_falcon_512
     SIGALG("falcon512", 128, oqs_falcon512_keymgmt_functions),
     SIGALG("p256_falcon512", 128, oqs_p256_falcon512_keymgmt_functions),
@@ -1165,6 +1180,8 @@ static const OSSL_ALGORITHM luna_keymgmt[] = {
     SIGALG("falconpadded1024", 256, oqs_falconpadded1024_keymgmt_functions),
     SIGALG("p521_falconpadded1024", 256, oqs_p521_falconpadded1024_keymgmt_functions),
 #endif
+#endif /* LUNA_OQS_falcon */
+#ifdef LUNA_OQS_sphincs
 #ifdef OQS_ENABLE_SIG_sphincs_sha2_128f_simple
     SIGALG("sphincssha2128fsimple", 128, oqs_sphincssha2128fsimple_keymgmt_functions),
     SIGALG("p256_sphincssha2128fsimple", 128, oqs_p256_sphincssha2128fsimple_keymgmt_functions),
@@ -1184,7 +1201,10 @@ static const OSSL_ALGORITHM luna_keymgmt[] = {
     SIGALG("p256_sphincsshake128fsimple", 128, oqs_p256_sphincsshake128fsimple_keymgmt_functions),
     SIGALG("rsa3072_sphincsshake128fsimple", 128, oqs_rsa3072_sphincsshake128fsimple_keymgmt_functions),
 #endif
+#endif /* LUNA_OQS_sphincs */
 
+#ifdef LUNA_KEYEXCH
+#ifdef LUNA_OQS_kyber
 #ifdef OQS_ENABLE_KEM_kyber_512
     KEMKMALG(kyber512, 128)
 
@@ -1204,6 +1224,7 @@ static const OSSL_ALGORITHM luna_keymgmt[] = {
 
     KEMKMHYBALG(p521_kyber1024, 256, ecp)
 #endif
+#endif /* LUNA_OQS_kyber */
 #ifdef OQS_ENABLE_KEM_ml_kem_512
     KEMKMALG(mlkem512, 128)
 
@@ -1224,6 +1245,7 @@ static const OSSL_ALGORITHM luna_keymgmt[] = {
     KEMKMHYBALG(p521_mlkem1024, 256, ecp)
     KEMKMHYBALG(p384_mlkem1024, 192, ecp)
 #endif
+#endif /* LUNA_KEYEXCH */
 #endif  /* LUNA_OQS */
     { NULL, NULL, NULL }
 };

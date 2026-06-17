@@ -38,9 +38,13 @@
 // enable old tls groups, consistent with pqc hybrid
 #define LUNA_TLS_GROUPS_OLD 1
 
-// disable sigalg
+// tls group name is mandatory (report standard groups)
+#define LUNA_CAPABILITY_TLS_GROUP_NAME 1
+
+// tls sigalg name is optional (report new algorithms - there are none)
 #undef LUNA_CAPABILITY_TLS_SIGALG_NAME
 
+#ifdef LUNA_CAPABILITY_TLS_GROUP_NAME
 // group constant
 typedef struct oqs_group_constants_st {
     unsigned int group_id; /* Group ID */
@@ -64,10 +68,10 @@ static OQS_GROUP_CONSTANTS oqs_group_list[] = {
     { OSSL_TLS_GROUP_ID_brainpoolP256r1, 128, TLS1_VERSION, TLS1_2_VERSION, DTLS1_VERSION, DTLS1_2_VERSION, 0 },
     { OSSL_TLS_GROUP_ID_brainpoolP384r1, 192, TLS1_VERSION, TLS1_2_VERSION, DTLS1_VERSION, DTLS1_2_VERSION, 0 },
     { OSSL_TLS_GROUP_ID_brainpoolP512r1, 256, TLS1_VERSION, TLS1_2_VERSION, DTLS1_VERSION, DTLS1_2_VERSION, 0 },
-#ifdef LUNA_OQS
+    // NOTE: list x25519 and x448 despite not implementing in hsm.
+    //  Compare with oqsprov_capabilities.c that does implement.
     { OSSL_TLS_GROUP_ID_x25519, 128, TLS1_VERSION, 0, DTLS1_VERSION, 0, 0 },
     { OSSL_TLS_GROUP_ID_x448, 224, TLS1_VERSION, 0, DTLS1_VERSION, 0, 0 },
-#endif /* LUNA_OQS */
 #endif /* LUNA_TLS_GROUPS_OLD */
 
 };
@@ -113,7 +117,7 @@ static const OSSL_PARAM oqs_param_group_list[][11] = {
     OQS_GROUP_ENTRY(brainpoolP512r1, brainpoolP512r1, EC, LUNA_GRP0+5),
     OQS_GROUP_ENTRY(x25519, X25519, X25519, LUNA_GRP0+6),
     OQS_GROUP_ENTRY(x448, X448, X448, LUNA_GRP0+7),
-#endif
+#endif /* LUNA_TLS_GROUPS_OLD */
 
 };
 
@@ -135,6 +139,7 @@ static int oqs_group_capability(OSSL_CALLBACK *cb, void *arg)
 
     return 1;
 }
+#endif /* LUNA_CAPABILITY_TLS_GROUP_NAME */
 
 #ifdef LUNA_CAPABILITY_TLS_SIGALG_NAME
 static OQS_SIGALG_CONSTANTS oqs_sigalg_list[] = {
@@ -183,8 +188,10 @@ static int oqs_sigalg_capability(OSSL_CALLBACK *cb, void *arg)
 int luna_classic_provider_get_capabilities(void *provctx_unused, const char *capability,
                                   OSSL_CALLBACK *cb, void *arg)
 {
+#ifdef LUNA_CAPABILITY_TLS_GROUP_NAME
     if (strcasecmp(capability, "TLS-GROUP") == 0)
         return oqs_group_capability(cb, arg);
+#endif /* LUNA_CAPABILITY_TLS_GROUP_NAME */
 
 #ifdef LUNA_CAPABILITY_TLS_SIGALG_NAME
     if (strcasecmp(capability, "TLS-SIGALG") == 0)

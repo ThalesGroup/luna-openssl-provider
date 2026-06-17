@@ -81,6 +81,7 @@
 ///// OQS_TEMPLATE_FRAGMENT_MAKE_START
 #ifdef OQS_KEM_ENCODERS
 
+#ifdef LUNA_OQS_frodo
 #    ifdef OQS_ENABLE_KEM_frodokem_640_aes
 ENCODER_w_structure("frodo640aes", frodo640aes, der, PrivateKeyInfo),
     ENCODER_w_structure("frodo640aes", frodo640aes, pem, PrivateKeyInfo),
@@ -285,6 +286,9 @@ ENCODER_w_structure("frodo640aes", frodo640aes, der, PrivateKeyInfo),
                         SubjectPublicKeyInfo),
     ENCODER_TEXT("p521_frodo1344shake", p521_frodo1344shake),
 #    endif
+#endif /* LUNA_OQS_frodo */
+
+#ifdef LUNA_OQS_kyber
 #    ifdef OQS_ENABLE_KEM_kyber_512
     ENCODER_w_structure("kyber512", kyber512, der, PrivateKeyInfo),
     ENCODER_w_structure("kyber512", kyber512, pem, PrivateKeyInfo),
@@ -393,6 +397,8 @@ ENCODER_w_structure("frodo640aes", frodo640aes, der, PrivateKeyInfo),
                         SubjectPublicKeyInfo),
     ENCODER_TEXT("p521_kyber1024", p521_kyber1024),
 #    endif
+#endif /* LUNA_OQS_kyber */
+
 #    ifdef OQS_ENABLE_KEM_ml_kem_512
     ENCODER_w_structure("mlkem512", mlkem512, der, PrivateKeyInfo),
     ENCODER_w_structure("mlkem512", mlkem512, pem, PrivateKeyInfo),
@@ -512,6 +518,8 @@ ENCODER_w_structure("frodo640aes", frodo640aes, der, PrivateKeyInfo),
                         SubjectPublicKeyInfo),
     ENCODER_TEXT("p384_mlkem1024", p384_mlkem1024),
 #    endif
+
+#ifdef LUNA_OQS_bike
 #    ifdef OQS_ENABLE_KEM_bike_l1
     ENCODER_w_structure("bikel1", bikel1, der, PrivateKeyInfo),
     ENCODER_w_structure("bikel1", bikel1, pem, PrivateKeyInfo),
@@ -586,6 +594,9 @@ ENCODER_w_structure("frodo640aes", frodo640aes, der, PrivateKeyInfo),
     ENCODER_w_structure("p521_bikel5", p521_bikel5, pem, SubjectPublicKeyInfo),
     ENCODER_TEXT("p521_bikel5", p521_bikel5),
 #    endif
+#endif /* LUNA_OQS_bike */
+
+#ifdef LUNA_OQS_hqc
 #    ifdef OQS_ENABLE_KEM_hqc_128
     ENCODER_w_structure("hqc128", hqc128, der, PrivateKeyInfo),
     ENCODER_w_structure("hqc128", hqc128, pem, PrivateKeyInfo),
@@ -660,9 +671,10 @@ ENCODER_w_structure("frodo640aes", frodo640aes, der, PrivateKeyInfo),
     ENCODER_w_structure("p521_hqc256", p521_hqc256, pem, SubjectPublicKeyInfo),
     ENCODER_TEXT("p521_hqc256", p521_hqc256),
 #    endif
-
+#endif /* LUNA_OQS_hqc */
 #endif /* OQS_KEM_ENCODERS */
 
+#ifdef LUNA_OQS_dilithium
 #ifdef OQS_ENABLE_SIG_dilithium_2
     ENCODER_w_structure("dilithium2", dilithium2, der, PrivateKeyInfo),
     ENCODER_w_structure("dilithium2", dilithium2, pem, PrivateKeyInfo),
@@ -742,6 +754,8 @@ ENCODER_w_structure("frodo640aes", frodo640aes, der, PrivateKeyInfo),
                         SubjectPublicKeyInfo),
     ENCODER_TEXT("p521_dilithium5", p521_dilithium5),
 #endif
+#endif /* LUNA_OQS_dilithium */
+
 #ifdef OQS_ENABLE_SIG_ml_dsa_44
     ENCODER_w_structure(LUNA_EN_ML_DSA_44, mldsa44, der, PrivateKeyInfo),
     ENCODER_w_structure(LUNA_EN_ML_DSA_44, mldsa44, pem, PrivateKeyInfo),
@@ -970,6 +984,8 @@ ENCODER_w_structure("frodo640aes", frodo640aes, der, PrivateKeyInfo),
                         SubjectPublicKeyInfo),
     ENCODER_TEXT("mldsa87_ed448", mldsa87_ed448),
 #endif
+
+#ifdef LUNA_OQS_falcon
 #ifdef OQS_ENABLE_SIG_falcon_512
     ENCODER_w_structure("falcon512", falcon512, der, PrivateKeyInfo),
     ENCODER_w_structure("falcon512", falcon512, pem, PrivateKeyInfo),
@@ -1094,6 +1110,9 @@ ENCODER_w_structure("frodo640aes", frodo640aes, der, PrivateKeyInfo),
                         SubjectPublicKeyInfo),
     ENCODER_TEXT("p521_falconpadded1024", p521_falconpadded1024),
 #endif
+#endif /* LUNA_OQS_falcon */
+
+#ifdef LUNA_OQS_sphincs
 #ifdef OQS_ENABLE_SIG_sphincs_sha2_128f_simple
     ENCODER_w_structure("sphincssha2128fsimple", sphincssha2128fsimple, der,
                         PrivateKeyInfo),
@@ -1268,4 +1287,5 @@ ENCODER_w_structure("frodo640aes", frodo640aes, der, PrivateKeyInfo),
     ENCODER_TEXT("rsa3072_sphincsshake128fsimple",
                  rsa3072_sphincsshake128fsimple),
 #endif
+#endif /* LUNA_OQS_sphincs */
     ///// OQS_TEMPLATE_FRAGMENT_MAKE_END
