@@ -52,10 +52,12 @@ DECODER_w_structure("ED25519", der, PrivateKeyInfo, ed25519, yes),
 DECODER_w_structure("ED25519", der, SubjectPublicKeyInfo, ed25519, yes),
 DECODER_w_structure("ED448", der, PrivateKeyInfo, ed448, yes),
 DECODER_w_structure("ED448", der, SubjectPublicKeyInfo, ed448, yes),
+#ifdef LUNA_KEYEXCH
 DECODER_w_structure("X25519", der, PrivateKeyInfo, x25519, yes),
 DECODER_w_structure("X25519", der, SubjectPublicKeyInfo, x25519, yes),
 DECODER_w_structure("X448", der, PrivateKeyInfo, x448, yes),
 DECODER_w_structure("X448", der, SubjectPublicKeyInfo, x448, yes),
+#endif /* LUNA_KEYEXCH */
 #  endif
 # endif
 # ifndef OPENSSL_NO_SM2

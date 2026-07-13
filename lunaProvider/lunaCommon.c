@@ -473,14 +473,28 @@ int luna_prov_ECDSA_sign_ex(int type, const unsigned char *dgst, int dlen,
                   const BIGNUM *r, EC_KEY *eckey)
 {
     LUNA_PRINTF(("\n"));
-    return luna_ecdsa_sign(type, dgst, dlen, sig, siglen, kinv, r, eckey);
+    const int rc_check = luna_prov_ec_check_private(eckey);
+    if ( luna_prov_check_is_software(rc_check) ) {
+        //NO:return ECDSA_sign_ex(type, dgst, dlen, sig, siglen, kinv, r, eckey);
+        return luna_ecdsa_sign(type, dgst, dlen, sig, siglen, kinv, r, eckey);
+    } else if ( luna_prov_check_is_hardware(rc_check)) {
+        return luna_ecdsa_sign(type, dgst, dlen, sig, siglen, kinv, r, eckey);
+    }
+    return 0; /* error */
 }
 
 int luna_prov_ECDSA_verify(int type, const unsigned char *dgst, int dgst_len,
                  const unsigned char *sigbuf, int sig_len, EC_KEY *eckey)
 {
     LUNA_PRINTF(("\n"));
-    return luna_ecdsa_verify(type, dgst, dgst_len, sigbuf, sig_len, eckey);
+    const int rc_check = luna_prov_ec_check_public(eckey);
+    if ( luna_prov_check_is_software(rc_check) ) {
+        //NO:return ECDSA_verify(type, dgst, dgst_len, sigbuf, sig_len, eckey);
+        return luna_ecdsa_verify(type, dgst, dgst_len, sigbuf, sig_len, eckey);
+    } else if ( luna_prov_check_is_hardware(rc_check) ) {
+        return luna_ecdsa_verify(type, dgst, dgst_len, sigbuf, sig_len, eckey);
+    }
+    return 0; /* error */
 }
 
 /* DSA wrapper functions */
@@ -1466,7 +1480,7 @@ static void _LUNA_OQS_WRITEKEY(luna_prov_key_ctx *keyctx, luna_prov_key_reason r
 static void _LUNA_OQS_READKEY(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *keyinfo);
 static void LUNA_OQS_READKEY_NDX_LOCK(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *keyinfo, int ndx_in);
 static void luna_sprintf_base64url(char *obuf, unsigned char *in, unsigned inlen);
-static void _LUNA_debug_ex(const char *prefix, const char *prefix2, const CK_BYTE* p, size_t n);
+static void _LUNA_debug_ex(const char *prefix, const char *prefix2, const unsigned char* p, size_t n);
 static int luna_prov_is_ecdh_len(size_t len);
 
 static void LunaTranslateFM2FW(luna_prov_key_ctx *keyctx,
@@ -1813,6 +1827,10 @@ static void _LUNA_debug_ex(const char *prefix, const char *prefix2, const unsign
 static void _LUNA_OQS_debug(luna_prov_key_ctx *keyctx, const char *prefix) {
 }
 #endif
+
+void luna_prov_debug_ex(const char *prefix, const char *prefix2, const unsigned char* p, size_t n) {
+    _LUNA_debug_ex(prefix, prefix2, p, n);
+}
 
 /* writing the key buffer, including re-allocating the key buffer */
 static void _LUNA_OQS_WRITEKEY(luna_prov_key_ctx *keyctx, luna_prov_key_reason reason) {

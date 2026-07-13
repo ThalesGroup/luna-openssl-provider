@@ -250,7 +250,7 @@ static BIGNUM *LUNA_DSA_SIG_GET_s(const DSA_SIG *sig);
 #define LUNA_EC_KEY_METH_SET_DEFAULT(_dest) { \
    const LUNA_EC_KEY_METHOD *method = LUNA_EC_KEY_OpenSSL(); \
    EC_KEY_METHOD_set_sign((_dest), luna_ecdsa_sign, luna_ecdsa_sign_setup, luna_ecdsa_do_sign); \
-      EC_KEY_METHOD_get_sign(method, NULL, &saved_ecdsa_sign_setup, &saved_ecdsa_do_sign); \
+      EC_KEY_METHOD_get_sign(method, &saved_ecdsa_sign, &saved_ecdsa_sign_setup, &saved_ecdsa_do_sign); \
    EC_KEY_METHOD_set_verify((_dest), luna_ecdsa_verify, luna_ecdsa_do_verify); \
       EC_KEY_METHOD_get_verify(method, NULL, &saved_ecdsa_do_verify); \
    EC_KEY_METHOD_set_keygen((_dest), luna_ecdsa_keygen); \
@@ -266,7 +266,7 @@ static BIGNUM *LUNA_DSA_SIG_GET_s(const DSA_SIG *sig);
    const LUNA_EC_KEY_METHOD *method = LUNA_EC_KEY_OpenSSL(); \
    ECDSA_METHOD_set_sign_setup((_dest), luna_ecdsa_sign_setup); \
    ECDSA_METHOD_set_sign((_dest), luna_ecdsa_do_sign); \
-      /* FIXME: ECDSA_METHOD_get_sign(method, NULL, &saved_ecdsa_sign_setup, &saved_ecdsa_do_sign); */ \
+      /* FIXME: ECDSA_METHOD_get_sign(method, &saved_ecdsa_sign, &saved_ecdsa_sign_setup, &saved_ecdsa_do_sign); */ \
    ECDSA_METHOD_set_verify((_dest), luna_ecdsa_do_verify); \
       /* FIXME: ECDSA_METHOD_get_verify(method, NULL, &saved_ecdsa_do_verify); */ \
    /* FIXME: ECDSA_METHOD_set_keygen((_dest), luna_ecdsa_keygen); */ \

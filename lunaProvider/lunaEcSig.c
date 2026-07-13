@@ -167,6 +167,7 @@ static int ecdsa_sign(void *vctx, unsigned char *sig, size_t *siglen,
     unsigned int sltmp;
     size_t ecsize = ECDSA_size(ctx->ec);
 
+    LUNA_PRINTF(("\n"));
     if (!luna_prov_is_running())
         return 0;
 
@@ -180,18 +181,21 @@ static int ecdsa_sign(void *vctx, unsigned char *sig, size_t *siglen,
         return 0;
 #endif
 
-    if (sigsize < (size_t)ecsize)
+    if (sigsize < ecsize)
         return 0;
 
     if (ctx->mdsize != 0 && tbslen != ctx->mdsize)
         return 0;
 
-    LUNA_PRINTF(("ECDSA_sign_ex\n"));
+    sltmp = (unsigned int)sigsize;
     ret = luna_prov_ECDSA_sign_ex(0, tbs, tbslen, sig, &sltmp, ctx->kinv, ctx->r, ctx->ec);
     if (ret <= 0)
         return 0;
 
     *siglen = sltmp;
+    if (luna_getenv_LUNAPROV()) {
+        luna_prov_debug_ex("ecdsa_sign", "sigout", sig, *siglen);
+    }
     return 1;
 }
 
@@ -349,7 +353,7 @@ static int ecdsa_digest_sign_final(void *vctx, unsigned char *sig, size_t *sigle
      */
     if (sig != NULL) {
         LUNA_PRINTF(("EVP_DigestFinal_ex\n"));
-        if (!LUNAPROV_EVP_DigestFinal_ex(ctx->mdctx, digest, &dlen))
+        if (LUNAPROV_EVP_DigestFinal_ex(ctx->mdctx, digest, &dlen) <= 0)
             return 0;
     }
     ctx->flag_allow_md = 1;

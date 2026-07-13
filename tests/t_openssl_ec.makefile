@@ -61,7 +61,7 @@ check0:
 
 # second choice: generate key via sautil
 tmpec.pkey.1: tmpec.foo
-	sautil -v -s 0 -i 0:0 -o -q -c -m OID_sect571r1 -f tmpec.pkey
+	sautil -v -s 0 -i 0:0 -o -q -c -m OID_secp521r1 -f tmpec.pkey
 	cp tmpec.pkey tmpec.pkey.1
 	@echo '--------'
 

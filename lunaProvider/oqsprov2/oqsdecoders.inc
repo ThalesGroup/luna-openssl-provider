@@ -36,6 +36,7 @@
 ///// OQS_TEMPLATE_FRAGMENT_MAKE_START
 #ifdef OQS_KEM_ENCODERS
 
+#ifdef LUNA_OQS_frodo
 #    ifdef OQS_ENABLE_KEM_frodokem_640_aes
 DECODER_w_structure("frodo640aes", der, PrivateKeyInfo, frodo640aes),
     DECODER_w_structure("frodo640aes", der, SubjectPublicKeyInfo, frodo640aes),
@@ -104,6 +105,9 @@ DECODER_w_structure("frodo640aes", der, PrivateKeyInfo, frodo640aes),
     DECODER_w_structure("p521_frodo1344shake", der, SubjectPublicKeyInfo,
                         p521_frodo1344shake),
 #    endif
+#endif /* LUNA_OQS_frodo */
+
+#ifdef LUNA_OQS_kyber
 #    ifdef OQS_ENABLE_KEM_kyber_512
     DECODER_w_structure("kyber512", der, PrivateKeyInfo, kyber512),
     DECODER_w_structure("kyber512", der, SubjectPublicKeyInfo, kyber512),
@@ -139,6 +143,8 @@ DECODER_w_structure("frodo640aes", der, PrivateKeyInfo, frodo640aes),
     DECODER_w_structure("p521_kyber1024", der, SubjectPublicKeyInfo,
                         p521_kyber1024),
 #    endif
+#endif /* LUNA_OQS_kyber */
+
 #    ifdef OQS_ENABLE_KEM_ml_kem_512
     DECODER_w_structure("mlkem512", der, PrivateKeyInfo, mlkem512),
     DECODER_w_structure("mlkem512", der, SubjectPublicKeyInfo, mlkem512),
@@ -177,6 +183,8 @@ DECODER_w_structure("frodo640aes", der, PrivateKeyInfo, frodo640aes),
     DECODER_w_structure("p384_mlkem1024", der, SubjectPublicKeyInfo,
                         p384_mlkem1024),
 #    endif
+
+#ifdef LUNA_OQS_bike
 #    ifdef OQS_ENABLE_KEM_bike_l1
     DECODER_w_structure("bikel1", der, PrivateKeyInfo, bikel1),
     DECODER_w_structure("bikel1", der, SubjectPublicKeyInfo, bikel1),
@@ -200,6 +208,9 @@ DECODER_w_structure("frodo640aes", der, PrivateKeyInfo, frodo640aes),
     DECODER_w_structure("p521_bikel5", der, PrivateKeyInfo, p521_bikel5),
     DECODER_w_structure("p521_bikel5", der, SubjectPublicKeyInfo, p521_bikel5),
 #    endif
+#endif /* LUNA_OQS_bike */
+
+#ifdef LUNA_OQS_hqc
 #    ifdef OQS_ENABLE_KEM_hqc_128
     DECODER_w_structure("hqc128", der, PrivateKeyInfo, hqc128),
     DECODER_w_structure("hqc128", der, SubjectPublicKeyInfo, hqc128),
@@ -223,9 +234,11 @@ DECODER_w_structure("frodo640aes", der, PrivateKeyInfo, frodo640aes),
     DECODER_w_structure("p521_hqc256", der, PrivateKeyInfo, p521_hqc256),
     DECODER_w_structure("p521_hqc256", der, SubjectPublicKeyInfo, p521_hqc256),
 #    endif
+#endif /* LUNA_OQS_hqc*/
 
 #endif /* OQS_KEM_ENCODERS */
 
+#ifdef LUNA_OQS_dilithium
 #ifdef OQS_ENABLE_SIG_dilithium_2
     DECODER_w_structure("dilithium2", der, PrivateKeyInfo, dilithium2),
     DECODER_w_structure("dilithium2", der, SubjectPublicKeyInfo, dilithium2),
@@ -254,6 +267,8 @@ DECODER_w_structure("frodo640aes", der, PrivateKeyInfo, frodo640aes),
     DECODER_w_structure("p521_dilithium5", der, SubjectPublicKeyInfo,
                         p521_dilithium5),
 #endif
+#endif /* LUNA_OQS_dilithium */
+
 #ifdef OQS_ENABLE_SIG_ml_dsa_44
     DECODER_w_structure(LUNA_EN_ML_DSA_44, der, PrivateKeyInfo, mldsa44),
     DECODER_w_structure(LUNA_EN_ML_DSA_44, der, SubjectPublicKeyInfo, mldsa44),
@@ -324,6 +339,8 @@ DECODER_w_structure("frodo640aes", der, PrivateKeyInfo, frodo640aes),
     DECODER_w_structure("mldsa87_ed448", der, SubjectPublicKeyInfo,
                         mldsa87_ed448),
 #endif
+
+#ifdef LUNA_OQS_falcon
 #ifdef OQS_ENABLE_SIG_falcon_512
     DECODER_w_structure("falcon512", der, PrivateKeyInfo, falcon512),
     DECODER_w_structure("falcon512", der, SubjectPublicKeyInfo, falcon512),
@@ -367,6 +384,9 @@ DECODER_w_structure("frodo640aes", der, PrivateKeyInfo, frodo640aes),
     DECODER_w_structure("p521_falconpadded1024", der, SubjectPublicKeyInfo,
                         p521_falconpadded1024),
 #endif
+#endif /* LUNA_OQS_falcon */
+
+#ifdef LUNA_OQS_sphincs
 #ifdef OQS_ENABLE_SIG_sphincs_sha2_128f_simple
     DECODER_w_structure("sphincssha2128fsimple", der, PrivateKeyInfo,
                         sphincssha2128fsimple),
@@ -419,4 +439,5 @@ DECODER_w_structure("frodo640aes", der, PrivateKeyInfo, frodo640aes),
     DECODER_w_structure("rsa3072_sphincsshake128fsimple", der,
                         SubjectPublicKeyInfo, rsa3072_sphincsshake128fsimple),
 #endif
+#endif /* LUNA_OQS_sphincs */
     ///// OQS_TEMPLATE_FRAGMENT_MAKE_END
