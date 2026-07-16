@@ -17,6 +17,13 @@ FROM registry.access.redhat.com/ubi8/ubi
 #USER root
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# Optional local CA cert for TLS-inspecting corporate proxies (e.g. Zscaler).
+# Glob pattern is a no-op COPY when the file is absent, so this is safe for
+# contributors who don't have zscaler-root-ca.crt locally.
+COPY zscaler-root-ca.cr[t] /etc/pki/ca-trust/source/anchors/
+RUN \
+    update-ca-trust extract
+
 RUN \
     # Upgrade all current packages
     dnf -y update --setopt=tsflags=nodocs --setopt=install_weak_deps=0 --refresh && \
