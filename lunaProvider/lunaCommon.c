@@ -59,19 +59,24 @@ static void luna_fini_pqc(void);
 
 /* engine interface that is private to luna provider */
 static ENGINE *e_init = NULL;
+static unsigned e_init_count = 0;
 
 /* query provider is useable */
 int luna_prov_is_running(void)
 {
     if ( ! ossl_prov_is_running() )
         return 0;
-    LUNA_PRINTF(("e_init = %p\n", e_init));
+    LUNA_PRINTF(("e_init = %p, e_init_count = %u\n", e_init, e_init_count));
     return e_init != NULL;
 }
 
 int luna_prov_engine_init(void)
 {
-    LUNA_ASSERT(e_init == NULL); /* initialize once */
+    /* initialize once, with reference count */
+    if (e_init != NULL) {
+       e_init_count++;
+       return 1;
+    }
     /* init engine */
     ENGINE *e = ENGINE_gem();
     if (e == NULL)
@@ -81,6 +86,7 @@ int luna_prov_engine_init(void)
         return 0;
     }
     e_init = e;
+    e_init_count = 1;
     LUNA_PRINTF(("e_init = %p\n", e_init));
     luna_init_ecdh();
 #ifdef LUNA_OQS
@@ -94,12 +100,17 @@ void luna_prov_engine_fini(void)
     /* NOTE: maybe not safe to call upon application exit (atexit) */
     if (luna_get_flag_exit() != 0)
         return;
+    LUNA_ASSERT(e_init != NULL && e_init_count != 0);
+    e_init_count--;
+    if (e_init_count > 0)
+        return;
 #ifdef LUNA_OQS
     luna_fini_pqc();
 #endif
     luna_finish_engine(e_init);
     luna_destroy_engine(e_init);
     e_init = NULL;
+    e_init_count = 0;
 }
 
 /* query key is useable */
