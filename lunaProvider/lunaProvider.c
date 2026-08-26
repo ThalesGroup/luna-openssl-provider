@@ -22,7 +22,7 @@
 
 /* luna provider details as of toolkit 1.6 */
 #define LUNA_PROV_NAME_SZ "Thales Luna Provider"
-#define LUNA_PROV_VERSION_SZ "1.7.8.3"
+#define LUNA_PROV_VERSION_SZ "1.7.9.3"
 #define LUNA_PROV_SZ "lunaprov"
 #define LUNA_PROV_CONCAT_SZ(a_, b_) a_ b_
 
@@ -1278,6 +1278,7 @@ static const OSSL_ALGORITHM luna_decoder[] = {
 
 static const OSSL_ALGORITHM luna_store[] = {
     { "file", LUNA_PROV_EQUALS_SZ, luna_file_store_functions },
+    { "pkcs11", LUNA_PROV_EQUALS_SZ, luna_file_store_functions },
     { NULL, NULL, NULL }
 };
 

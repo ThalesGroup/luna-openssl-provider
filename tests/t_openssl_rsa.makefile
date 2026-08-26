@@ -69,6 +69,8 @@ check0:
 	@echo '--------'
 
 # second choice: generate key via sautil
+key1: tmp.pkey.1
+
 tmp.pkey.1: tmp.foo
 	sautil -v -s 0 -i 0:0 -o -q -c -g $(RSA_BITS) -x 01:00:01 -f tmp.pkey
 	cp tmp.pkey tmp.pkey.1

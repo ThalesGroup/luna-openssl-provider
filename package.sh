@@ -20,7 +20,7 @@ VERSION=$(cat VERSION)
 GEMENGINE=$PACKAGE/gemengine-$VERSION
 SAMPLES=gem-samples
 WIN_OPENSSL_VERSION=1.1.1w
-WIN_OPENSSL_VERSION_2=3.2.1
+WIN_OPENSSL_VERSION_2=3.5.5
 
 # package the provider code when it is ready for GA
 WANT_PROVIDER="1"
@@ -127,6 +127,7 @@ makefile.in \
 lunaCommon.c \
 lunaprov_deps.c \
 lunaprov_deps.def \
+exports.map \
 lunaFileStore.h \
 lunaFileAny2obj.c \
 luna_decoders.inc \
