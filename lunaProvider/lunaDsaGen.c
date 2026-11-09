@@ -231,6 +231,13 @@ static int luna_dsa_export(void *keydata, int selection, OSSL_CALLBACK *param_cb
     if ((selection & DSA_POSSIBLE_SELECTIONS) == 0)
         return 0;
 
+    // resist export; e.g. for command "openssl dgst"
+    if ( ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0)
+            && (luna_prov_check_is_hardware(luna_prov_dsa_check_private(dsa))) ) {
+        LUNA_PRINTF(("resist export\n"));
+        return 0;
+    }
+
     tmpl = OSSL_PARAM_BLD_new();
     if (tmpl == NULL)
         return 0;

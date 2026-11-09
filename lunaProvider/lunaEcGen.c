@@ -302,27 +302,6 @@ int ec_has(const void *keydata, int selection)
     if ((selection & EC_POSSIBLE_SELECTIONS) == 0)
         return 1; /* the selection is not missing */
 
-#if defined(LUNA_REFUSE_PRIVATE_KEY)
-    // FIXME:FIXME: the proper solution is to never hook up the provider entry point to receive this request in the first place; i.e.,
-    // a runtime decision, based on one or more config items (this may get complicated for hybrid algorithms).
-    /* For private key selection, check if this is an HSM key.
-     * Reject software/ephemeral keys - let default provider handle them.
-     * This is critical for TLS 1.3 ephemeral ECDH keys.
-     */
-    if ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0) {
-        const int rc_check = luna_prov_ec_check_private(ec);
-        if (luna_prov_check_is_software(rc_check)) {
-            /* Software/ephemeral key - tell OpenSSL we don't "have" it */
-            return 0;
-        }
-        if (!luna_prov_check_is_hardware(rc_check)) {
-            /* Error - malformed key */
-            return 0;
-        }
-        /* HSM key - continue with normal checks */
-    }
-#endif /* LUNA_REFUSE_PRIVATE_KEY */
-
     if ((selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY) != 0)
         ok = ok && (EC_KEY_get0_public_key(ec) != NULL);
     if ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0)
@@ -346,6 +325,7 @@ static int ec_match(const void *keydata1, const void *keydata2, int selection)
     BN_CTX *ctx = NULL;
     int ok = 1;
 
+    LUNA_PRINTF(("\n"));
     if (!luna_prov_is_running())
         return 0;
 
@@ -405,6 +385,7 @@ int common_import(void *keydata, int selection, const OSSL_PARAM params[],
     EC_KEY *ec = keydata;
     int ok = 1;
 
+    LUNA_PRINTF(("\n"));
     if (!luna_prov_is_running() || ec == NULL)
         return 0;
 
@@ -468,6 +449,7 @@ int ec_export(void *keydata, int selection, OSSL_CALLBACK *param_cb,
     BN_CTX *bnctx = NULL;
     int ok = 1;
 
+    LUNA_PRINTF(("\n"));
     if (!luna_prov_is_running() || ec == NULL)
         return 0;
 
@@ -492,6 +474,13 @@ int ec_export(void *keydata, int selection, OSSL_CALLBACK *param_cb,
     if ((selection & OSSL_KEYMGMT_SELECT_OTHER_PARAMETERS) != 0
             && (selection & OSSL_KEYMGMT_SELECT_KEYPAIR) == 0)
         return 0;
+
+    // resist export; e.g. for command "openssl dgst"
+    if ( ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0)
+            && (luna_prov_check_is_hardware(luna_prov_ec_check_private(ec))) ) {
+        LUNA_PRINTF(("resist export\n"));
+        return 0;
+    }
 
     tmpl = OSSL_PARAM_BLD_new();
     if (tmpl == NULL)
@@ -947,6 +936,7 @@ int luna_ec_validate(const void *keydata, int selection, int checktype)
     int ok = 1;
     BN_CTX *ctx = NULL;
 
+    LUNA_PRINTF(("\n"));
     if (!luna_prov_is_running())
         return 0;
 
@@ -1290,6 +1280,7 @@ static void *ec_gen(void *genctx, OSSL_CALLBACK *osslcb, void *cbarg)
     EC_KEY *ec = NULL;
     int ret = 0;
 
+    LUNA_PRINTF(("\n"));
     if (!luna_prov_is_running()
         || gctx == NULL
         || (ec = EC_KEY_new_ex(gctx->libctx, NULL)) == NULL)
