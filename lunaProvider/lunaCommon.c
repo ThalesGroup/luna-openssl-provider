@@ -3480,6 +3480,12 @@ void luna_getenv_LUNAPROV_init(void) {
 
 #ifdef LUNA_OQS
 
+#define LUNA_FW_CKK_ML_DSA 0x0000004aUL
+#define LUNA_FW_CKK_ML_KEM 0x00000049UL
+
+#define LUNA_IS_CKK_ML_DSA(_ckk) ((_ckk) == LUNA_FW_CKK_ML_DSA)
+#define LUNA_IS_CKK_EC_ED(_ckk) ((_ckk) == CKK_EC_EDWARDS)
+
 // translate from FM codes to FW codes (main firmware)
 static void LunaTranslateFM2FW(luna_prov_key_ctx *keyctx, CK_KEY_TYPE *pkeytype,
         CK_KEY_PARAMS *pparams, CK_MECHANISM *ptypeGenerate,
@@ -3493,9 +3499,9 @@ static void LunaTranslateFM2FW(luna_prov_key_ctx *keyctx, CK_KEY_TYPE *pkeytype,
     // check key type
     if (pkeytype != NULL) {
         if (*pkeytype == CKK_ML_KEM) {
-            *pkeytype = 0x00000049UL; /* TODO: hardcoded */
+            *pkeytype = LUNA_FW_CKK_ML_KEM;
         } else if (*pkeytype == CKK_ML_DSA) {
-            *pkeytype = 0x0000004aUL; /* TODO: hardcoded */
+            *pkeytype = LUNA_FW_CKK_ML_DSA;
         }
     }
 
@@ -3807,25 +3813,36 @@ void LUNA_FIND_CTX_free(LUNA_FIND_CTX *ctx) {
 int LUNA_FIND_CTX_next(LUNA_FIND_CTX *ctx) {
     int rc = 0;
     EVP_PKEY *pkey = NULL;
+    void *poqskey = NULL;
     LUNA_PRINTF(("count = %d\n", ctx->count));
     switch (ctx->count) {
     case 0:
         // load PKEY (private key required and public key optional)
-        pkey = luna_load_anykey(NULL, ctx->uri, NULL, NULL, 0);
+        pkey = luna_load_anykey(NULL, ctx->uri, NULL, NULL, 0, &poqskey);
         break;
     case 1:
         // load PUBKEY (public key required)
-        pkey = luna_load_anykey(NULL, ctx->uri, NULL, NULL, 1);
+        pkey = luna_load_anykey(NULL, ctx->uri, NULL, NULL, 1, &poqskey);
         break;
     default:
         pkey = NULL;
         break;
     }
-    if (pkey != NULL) {
-        ctx->current = &ctx->pkeys[ctx->count];
-        ctx->current->pkey = pkey;
-        ctx->count++;
-        rc = 1;
+    if (pkey != NULL || poqskey != NULL) {
+        LUNA_ASSERT( (pkey != NULL) ^ (poqskey != NULL) );
+        if (pkey != NULL) {
+            ctx->current = &ctx->xkeys[ctx->count];
+            ctx->current->xkey = pkey;
+            ctx->current->xtype = 0;
+            ctx->count++;
+            rc = 1;
+        } else {
+            ctx->current = &ctx->xkeys[ctx->count];
+            ctx->current->xkey = poqskey;
+            ctx->current->xtype = 1;
+            ctx->count++;
+            rc = 1;
+        }
     }
     LUNA_PRINTF(("rc = %d\n", rc));
     return rc;
@@ -3869,5 +3886,20 @@ const char *luna_tls_name(const char *txt) {
     }
     LUNA_PRINTF(("txt = %s, tls_name = %s\n", txt, tls_name));
     return tls_name;
+}
+
+static EVP_PKEY *luna_prov_load_keytype(CK_ULONG ckKeyType, luna_context_t *pctx,
+    CK_OBJECT_HANDLE hPublicIn, CK_OBJECT_HANDLE hPrivateIn, int hintPublic, void **ppoqskey) {
+    EVP_PKEY *rckey = NULL;
+    // FIXME:SW: ignores hPublicIn, hPrivateIn thus creates a new keypair!
+    if (LUNA_IS_CKK_ML_DSA(ckKeyType)) {
+        extern void *luna_oqs_recreate_key(void *provctx, int selection);
+        const int selection = hintPublic ? OSSL_KEYMGMT_SELECT_PUBLIC_KEY : OSSL_KEYMGMT_SELECT_KEYPAIR;
+        OQSX_KEY *oqsx_key = luna_oqs_recreate_key(NULL, selection);
+        *ppoqskey = oqsx_key;
+    } else {
+        //  FIXME:SW: more algos
+    }
+    return rckey;
 }
 

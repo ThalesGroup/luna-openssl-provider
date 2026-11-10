@@ -1577,3 +1577,20 @@ MAKE_KEM_KEYMGMT_FUNCTIONS(hqc256, OQS_KEM_alg_hqc_256, 256)
 
 MAKE_KEM_ECP_KEYMGMT_FUNCTIONS(p521_hqc256, OQS_KEM_alg_hqc_256, 256)
 ///// OQS_TEMPLATE_FRAGMENT_KEYMGMT_FUNCTIONS_END
+
+#define LUNA_ASSERT(_expr) \
+    ((!(_expr)) ? (fprintf(stderr, "LUNA_ASSERT: %s: %u: %s.\n", __FILE__, __LINE__, #_expr), (exit(-1), -1)) : 0)
+
+void *luna_oqs_recreate_key(void *provctx, int selection)
+{
+    void *genctx = mldsa87_gen_init(provctx, selection); // FIXME:SW:algo!
+    LUNA_ASSERT(genctx != NULL);
+    OSSL_CALLBACK *osslcb = NULL;
+    void *cbarg = NULL;
+    void *oqsx_key = oqsx_gen(genctx, osslcb, cbarg);
+    LUNA_ASSERT(oqsx_key != NULL);
+    (void) oqsx_gen_cleanup(genctx);
+    genctx = NULL;
+    return oqsx_key;
+}
+

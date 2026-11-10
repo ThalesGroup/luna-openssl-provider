@@ -325,11 +325,13 @@ int LUNAPROV_EVP_MD_CTX_set_params(LUNAPROV_EVP_MD_CTX *ctx, const OSSL_PARAM pa
 struct luna_context_st;
 
 typedef struct LUNA_PKEY_CTX_st {
-    EVP_PKEY *pkey;
+    void *xkey; // EVP_PKEY or OQSX_KEY
+    int xtype; // EVP_PKEY(0) or OQSX_KEY(1)
     union {
         RSA *rsa;
         DSA *dsa;
         EC_KEY *ec;
+        void *pqc;
     } kk;
 } LUNA_PKEY_CTX;
 
@@ -338,7 +340,7 @@ typedef struct LUNA_FIND_CTX_st {
     char *uri;
     struct luna_context_st *psess;
     int count;
-    LUNA_PKEY_CTX pkeys[3];
+    LUNA_PKEY_CTX xkeys[3];
     LUNA_PKEY_CTX *current;
 } LUNA_FIND_CTX;
 
