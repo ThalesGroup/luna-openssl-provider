@@ -335,12 +335,14 @@ typedef struct LUNA_PKEY_CTX_st {
     } kk;
 } LUNA_PKEY_CTX;
 
+#define MAX_URI 3
+
 typedef struct LUNA_FIND_CTX_st {
     int magic;
-    char *uri;
+    char *uris[MAX_URI];
     struct luna_context_st *psess;
     int count;
-    LUNA_PKEY_CTX xkeys[3];
+    LUNA_PKEY_CTX xkeys[MAX_URI];
     LUNA_PKEY_CTX *current;
 } LUNA_FIND_CTX;
 

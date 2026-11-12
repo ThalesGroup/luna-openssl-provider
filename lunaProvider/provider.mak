@@ -11,7 +11,7 @@
 ##############################################################################
 
 # flags consistent with openssl
-include ..\win-cl-ssl.mk
+include ..\win-cl-ssl-debug.mk
 # NOTE: providers are compiled with unicode
 CNF_CPPFLAGS=$(CNF_CPPFLAGS_BASE) -D"UNICODE" -D"_UNICODE"
 

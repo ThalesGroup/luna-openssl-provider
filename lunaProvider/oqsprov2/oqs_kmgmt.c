@@ -81,6 +81,8 @@ struct oqsx_gen_ctx {
     int selection;
     int bit_security;
     int alg_idx;
+    // luna extension
+    luna_uri_ctx *urictx;
 };
 
 static int oqsx_has(const void *keydata, int selection)
@@ -616,6 +618,11 @@ static void *oqsx_gen_init(void *provctx, int selection, char *oqs_name,
     return gctx;
 }
 
+static void oqsx_gen_ctx_set_urictx(struct oqsx_gen_ctx *gctx, luna_uri_ctx *urictx)
+{
+    gctx->urictx = urictx;
+}
+
 static void *oqsx_genkey(struct oqsx_gen_ctx *gctx)
 {
     OQSX_KEY *key;
@@ -633,6 +640,8 @@ static void *oqsx_genkey(struct oqsx_gen_ctx *gctx)
         return NULL;
     }
 
+    LUNA_PRINTF(("luna_prov_key_ctx_set_urictx\n"));
+    luna_prov_key_ctx_set_urictx(key->lunakeyctx, gctx->urictx);
     if (oqsx_key_gen(key)) {
         ERR_raise(ERR_LIB_USER, OQSPROV_UNEXPECTED_NULL);
         return NULL;
@@ -1581,14 +1590,17 @@ MAKE_KEM_ECP_KEYMGMT_FUNCTIONS(p521_hqc256, OQS_KEM_alg_hqc_256, 256)
 #define LUNA_ASSERT(_expr) \
     ((!(_expr)) ? (fprintf(stderr, "LUNA_ASSERT: %s: %u: %s.\n", __FILE__, __LINE__, #_expr), (exit(-1), -1)) : 0)
 
-void *luna_oqs_recreate_key(void *provctx, int selection)
+void *luna_oqs_recreate_key(luna_uri_ctx *urictx, void *provctx, int selection)
 {
+    LUNA_ASSERT(urictx != NULL);
     void *genctx = mldsa87_gen_init(provctx, selection); // FIXME:SW:algo!
     LUNA_ASSERT(genctx != NULL);
-    OSSL_CALLBACK *osslcb = NULL;
-    void *cbarg = NULL;
-    void *oqsx_key = oqsx_gen(genctx, osslcb, cbarg);
+    oqsx_gen_ctx_set_urictx(genctx, urictx);
+    LUNA_PRINTF(("oqsx_genkey\n"));
+    void *oqsx_key = oqsx_genkey(genctx);
     LUNA_ASSERT(oqsx_key != NULL);
+    // oqsx_genkey takes ownership of urictx
+    urictx = NULL;
     (void) oqsx_gen_cleanup(genctx);
     genctx = NULL;
     return oqsx_key;

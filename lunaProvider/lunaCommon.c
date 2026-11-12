@@ -614,6 +614,8 @@ typedef struct luna_prov_key_ctx_st {
     volatile int readers;
     volatile int writers;
     volatile int want_writers;
+    // uri
+    luna_uri_ctx *urictx;
 } luna_prov_key_ctx;
 
 typedef struct luna_prov_keyinfo_st {
@@ -1486,7 +1488,7 @@ int LUNA_OQS_QUERY_SIG_verify(luna_prov_key_ctx *keyctx) {
 }
 
 static CK_RV LunaPqcFind(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo);
-static CK_RV LunaPqcGen(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo, int is_kem, int is_ecx);
+static CK_RV LunaPqcGen(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo, int is_kem, int is_ecx, int is_uri);
 static void _LUNA_OQS_WRITEKEY(luna_prov_key_ctx *keyctx, luna_prov_key_reason reason);
 static void _LUNA_OQS_READKEY(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *keyinfo);
 static void LUNA_OQS_READKEY_NDX_LOCK(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *keyinfo, int ndx_in);
@@ -1505,6 +1507,7 @@ static void LunaTranslateFM2FW(luna_prov_key_ctx *keyctx,
 static int LUNA_OQS_keypair(luna_prov_key_ctx *keyctx, luna_prov_key_bits *keybits) {
     const int is_kem = keybits->is_kem;
     const int is_ecx = 0;
+    const int is_uri = (keyctx->urictx != NULL);
     // check keyctx already initialized
     if (keyctx->magic != LUNA_PROV_MAGIC_ZERO)
         return LUNA_OQS_ERROR;
@@ -1519,14 +1522,24 @@ static int LUNA_OQS_keypair(luna_prov_key_ctx *keyctx, luna_prov_key_bits *keybi
 
     // find in hsm
     // FIXME: if kem (or sig) keys are session objects then they cannot be found, so this can be optimized out
+    // FIXME: if is_uri then we could re-use an already-open session in urictx
     CK_RV rv = (luna_open_context(&keyinfo.sess) == 1) ? CKR_OK : CKR_GENERAL_ERROR;
     if (rv == CKR_OK) {
-        rv = LunaPqcFind(keyctx, &keyinfo);
-        if ( (rv == CKR_OBJECT_COUNT_TOO_SMALL && keyctx->reason == LUNA_PROV_KEY_REASON_ZERO)
-          || (rv == CKR_OBJECT_DECODING_FAILED && keyctx->reason == LUNA_PROV_KEY_REASON_ZERO)
-           ) {
-            _LUNA_OQS_WRITEKEY(keyctx, LUNA_PROV_KEY_REASON_GEN);
-            rv = LunaPqcGen(keyctx, &keyinfo, is_kem, is_ecx);
+        LUNA_PRINTF(("is_uri = %d\n", is_uri));
+        if (is_uri) {
+            rv = LunaPqcFind(keyctx, &keyinfo);
+            if (rv == CKR_OK) {
+                _LUNA_OQS_WRITEKEY(keyctx, LUNA_PROV_KEY_REASON_GEN);
+                rv = LunaPqcGen(keyctx, &keyinfo, is_kem, is_ecx, is_uri);
+            }
+        } else {
+            rv = LunaPqcFind(keyctx, &keyinfo);
+            if ( (rv == CKR_OBJECT_COUNT_TOO_SMALL && keyctx->reason == LUNA_PROV_KEY_REASON_ZERO)
+              || (rv == CKR_OBJECT_DECODING_FAILED && keyctx->reason == LUNA_PROV_KEY_REASON_ZERO)
+               ) {
+                _LUNA_OQS_WRITEKEY(keyctx, LUNA_PROV_KEY_REASON_GEN);
+                rv = LunaPqcGen(keyctx, &keyinfo, is_kem, is_ecx, is_uri);
+            }
         }
 
         // get public key
@@ -3207,7 +3220,7 @@ int luna_prov_ecx_sig_derive_private(struct ecx_gen_ctx *gctx,
           || (rv == CKR_OBJECT_DECODING_FAILED && keyctx->reason == LUNA_PROV_KEY_REASON_ZERO)
            ) {
             _LUNA_OQS_WRITEKEY(keyctx, LUNA_PROV_KEY_REASON_GEN);
-            rv = LunaPqcGen(keyctx, &keyinfo, is_kem, is_ecx);
+            rv = LunaPqcGen(keyctx, &keyinfo, is_kem, is_ecx, 0); // TODO:SW: uri?
         }
 
         // get public key
@@ -3764,29 +3777,42 @@ int LUNA_PARAM_get_encoded_public_key(void *oqsxk_, const OSSL_PARAM *p, void **
 
 #endif /* LUNA_OQS */
 
+static void LUNA_FIND_CTX_free_uris(LUNA_FIND_CTX *ctx);
+
 /* for find object by uri */
 LUNA_FIND_CTX *LUNA_FIND_CTX_new(const char *uri) {
     LUNA_PRINTF(("uri=%s\n", uri));
+    char *uri_dup = OPENSSL_strdup(uri);
+    if (uri_dup == NULL)
+        return NULL;
     LUNA_FIND_CTX *ctx = OPENSSL_zalloc(sizeof(*ctx));
     if (ctx == NULL)
         return NULL;
-    ctx->uri = OPENSSL_strdup(uri);
-    if (ctx->uri == NULL) {
-        OPENSSL_free(ctx);
-        return NULL;
+    char *pstr = strstr(uri_dup, ";");
+    if (pstr == NULL) {
+        ctx->uris[0] = OPENSSL_strdup(uri_dup);
+        ctx->uris[1] = OPENSSL_strdup(uri_dup);
+    } else {
+        *pstr = '\0';
+        ctx->uris[0] = OPENSSL_strdup(uri_dup);
+        ctx->uris[1] = OPENSSL_strdup(pstr+1);
     }
     luna_context_t *psess = OPENSSL_zalloc(sizeof(*psess));
     if (psess == NULL) {
-        OPENSSL_free(ctx->uri);
+        LUNA_FIND_CTX_free_uris(ctx);
         OPENSSL_free(ctx);
+        OPENSSL_free(uri_dup);
         return NULL;
     }
     if (luna_open_context(psess) != 1) {
         OPENSSL_free(psess);
-        OPENSSL_free(ctx->uri);
+        LUNA_FIND_CTX_free_uris(ctx);
         OPENSSL_free(ctx);
+        OPENSSL_free(uri_dup);
         return NULL;
     }
+    OPENSSL_free(uri_dup);
+    uri_dup = NULL;
     ctx->psess = psess;
     ctx->magic = 1;
     return ctx;
@@ -3796,10 +3822,7 @@ void LUNA_FIND_CTX_free(LUNA_FIND_CTX *ctx) {
     LUNA_PRINTF(("\n"));
     if (ctx == NULL)
         return;
-    if (ctx->uri != NULL) {
-        OPENSSL_free(ctx->uri);
-    }
-    ctx->uri = NULL;
+    LUNA_FIND_CTX_free_uris(ctx);
     if (ctx->psess != NULL) {
         luna_close_context(ctx->psess);
         OPENSSL_free(ctx->psess);
@@ -3810,6 +3833,15 @@ void LUNA_FIND_CTX_free(LUNA_FIND_CTX *ctx) {
     OPENSSL_free(ctx);
 }
 
+static void LUNA_FIND_CTX_free_uris(LUNA_FIND_CTX *ctx) {
+    for (int i = 0; i < MAX_URI; i++) {
+        if (ctx->uris[i] != NULL) {
+            OPENSSL_free(ctx->uris[i]);
+            ctx->uris[i] = NULL;
+        }
+    }
+}
+
 int LUNA_FIND_CTX_next(LUNA_FIND_CTX *ctx) {
     int rc = 0;
     EVP_PKEY *pkey = NULL;
@@ -3818,11 +3850,12 @@ int LUNA_FIND_CTX_next(LUNA_FIND_CTX *ctx) {
     switch (ctx->count) {
     case 0:
         // load PKEY (private key required and public key optional)
-        pkey = luna_load_anykey(NULL, ctx->uri, NULL, NULL, 0, &poqskey);
+        pkey = luna_load_anykey(NULL, ctx->uris[0], NULL, NULL, 0, &poqskey);
         break;
     case 1:
         // load PUBKEY (public key required)
-        pkey = luna_load_anykey(NULL, ctx->uri, NULL, NULL, 1, &poqskey);
+        pkey = luna_load_anykey(NULL, (ctx->uris[1] != NULL ? ctx->uris[1] : ctx->uris[0]),
+            NULL, NULL, 1, &poqskey);
         break;
     default:
         pkey = NULL;
@@ -3891,15 +3924,35 @@ const char *luna_tls_name(const char *txt) {
 static EVP_PKEY *luna_prov_load_keytype(CK_ULONG ckKeyType, luna_context_t *pctx,
     CK_OBJECT_HANDLE hPublicIn, CK_OBJECT_HANDLE hPrivateIn, int hintPublic, void **ppoqskey) {
     EVP_PKEY *rckey = NULL;
-    // FIXME:SW: ignores hPublicIn, hPrivateIn thus creates a new keypair!
-    if (LUNA_IS_CKK_ML_DSA(ckKeyType)) {
-        extern void *luna_oqs_recreate_key(void *provctx, int selection);
-        const int selection = hintPublic ? OSSL_KEYMGMT_SELECT_PUBLIC_KEY : OSSL_KEYMGMT_SELECT_KEYPAIR;
-        OQSX_KEY *oqsx_key = luna_oqs_recreate_key(NULL, selection);
-        *ppoqskey = oqsx_key;
+    if (LUNA_IS_CKK_ML_DSA(ckKeyType)) { // FIXME:SW:algos!
+        extern void *luna_oqs_recreate_key(luna_uri_ctx *urictx, void *provctx, int selection);
+        const int selection = hintPublic ? OSSL_KEYMGMT_SELECT_PUBLIC_KEY : OSSL_KEYMGMT_SELECT_PRIVATE_KEY; //OSSL_KEYMGMT_SELECT_KEYPAIR;
+        luna_uri_ctx *urictx = (luna_uri_ctx*)OPENSSL_zalloc(sizeof(*urictx));
+        if (urictx == NULL)
+            return NULL;
+        urictx->hPublic = hPublicIn;
+        urictx->hPrivate = hPrivateIn;
+        OQSX_KEY *oqsx_key = luna_oqs_recreate_key(urictx, NULL, selection);
+        if (oqsx_key != NULL) {
+            // caller takes ownership
+            *ppoqskey = oqsx_key;
+            oqsx_key = NULL;
+            urictx = NULL;
+        } else {
+            OPENSSL_free(urictx);
+            urictx = NULL;
+        }
     } else {
         //  FIXME:SW: more algos
     }
     return rckey;
+}
+
+void luna_prov_key_ctx_set_urictx(luna_prov_key_ctx *keyctx, luna_uri_ctx *urictx) {
+    keyctx->urictx = urictx;
+}
+
+luna_uri_ctx *luna_prov_key_ctx_get_urictx(luna_prov_key_ctx *keyctx) {
+    return keyctx->urictx;
 }
 

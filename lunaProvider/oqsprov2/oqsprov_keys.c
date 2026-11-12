@@ -1814,17 +1814,27 @@ static int lunax_oqsx_key_gen_oqs_ndx(OQSX_KEY *key, int ndx_in, int is_kem, int
 
     if ( is_kem ) {
         if ( (is_delegated == 0) && (LUNA_OQS_QUERY_KEM_keypair(key->lunakeyctx) == LUNA_OQS_OK) ) {
+            // generate or find key in hardware
             rc = LUNA_OQS_KEM_keypair(key->lunakeyctx, &foo);
 
         } else {
+            // check trying to find a software key that cannot be found
+            if (luna_prov_key_ctx_get_urictx(key->lunakeyctx) != NULL)
+                return 1;
+            // generate key in software
             rc = OQS_KEM_keypair(key->oqsx_provider_ctx.oqsx_qs_ctx.kem, key->comp_pubkey[ndx], key->comp_privkey[ndx]);
         }
 
     } else {
         if (LUNA_OQS_QUERY_SIG_keypair(key->lunakeyctx) == LUNA_OQS_OK) {
+            // generate or find key in hardware
             rc = LUNA_OQS_SIG_keypair(key->lunakeyctx, &foo);
 
         } else {
+            // check trying to find a software key that cannot be found
+            if (luna_prov_key_ctx_get_urictx(key->lunakeyctx) != NULL)
+                return 1;
+            // generate key in software
             rc = OQS_SIG_keypair(key->oqsx_provider_ctx.oqsx_qs_ctx.sig, key->comp_pubkey[ndx], key->comp_privkey[ndx]);
         }
     }
@@ -2018,9 +2028,10 @@ int oqsx_key_gen(OQSX_KEY *key)
     } else if (key->keytype == KEY_TYPE_SIG) {
         ret = !oqsx_key_set_composites(key);
         ON_ERR_GOTO(ret, err_gen);
+        LUNA_PRINTF(("lunax_oqsx_key_gen_oqs_ndx\n"));
         ret = lunax_oqsx_key_gen_oqs_ndx(key, -1, 0, 0, 0, 0);
     } else {
-        ret = 1;
+        ret = 1; // error
     }
 err_gen:
     if (ret) {

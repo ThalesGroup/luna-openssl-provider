@@ -173,5 +173,15 @@ const char *luna_tls_name(const char *txt);
 /* runtime debugging */
 void luna_prov_debug_ex(const char *prefix, const char *prefix2, const unsigned char* p, size_t n);
 
+/* uri context */
+typedef struct luna_uri_ctx_st {
+    int magic;
+    unsigned long hPrivate;
+    unsigned long hPublic;
+} luna_uri_ctx;
+
+void luna_prov_key_ctx_set_urictx(luna_prov_key_ctx *keyctx, luna_uri_ctx *urictx);
+luna_uri_ctx *luna_prov_key_ctx_get_urictx(luna_prov_key_ctx *keyctx);
+
 #endif // _LUNA_PROV_MINIMAL_H
 

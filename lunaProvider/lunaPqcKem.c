@@ -373,8 +373,15 @@ static CK_RV LunaPqcKemDecap(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyi
     return rv;
 }
 
+// read public key attribute(s) from hsm and stuff it in the public key buffer,
+// for crypto in software or for writing to file
 static CK_RV LunaExportPublic(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo, CK_ATTRIBUTE_TYPE attrType) {
     CK_OBJECT_HANDLE hPublic = keyctx->hPublic;
+    CK_OBJECT_HANDLE hPrivate = keyctx->hPrivate;
+    if (!hPublic && !hPrivate)
+        return CKR_GENERAL_ERROR;
+    if (!hPublic)
+        return CKR_OK;
     CK_BYTE *pubkey = (CK_BYTE*)pkeyinfo->pubkey;
     CK_ULONG pubkeylen = pkeyinfo->pubkeylen;
     CK_ATTRIBUTE attributeTemplate[] = {
