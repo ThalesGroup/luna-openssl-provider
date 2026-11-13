@@ -595,11 +595,14 @@ static CK_RV LunaPqcGen(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo, 
         privateObjectHandle = keyctx->urictx->hPrivate;
         // read the first three attributes ( CKA_LABEL, CKA_ID, CKA_TOKEN )
         rv = CKR_GENERAL_ERROR;
-        if (privateObjectHandle) {
-            rv = P11->C_GetAttributeValue(session, privateObjectHandle, privateTemplate, 3);
-        }
-        if (publicObjectHandle && rv == CKR_OK) {
-            rv = P11->C_GetAttributeValue(session, publicObjectHandle, publicTemplate, 3);
+        if (privateObjectHandle || publicObjectHandle) {
+            rv = CKR_OK;
+            if (privateObjectHandle) {
+                rv = P11->C_GetAttributeValue(session, privateObjectHandle, privateTemplate, 3);
+            }
+            if (publicObjectHandle && rv == CKR_OK) {
+                rv = P11->C_GetAttributeValue(session, publicObjectHandle, publicTemplate, 3);
+            }
         }
     }
 

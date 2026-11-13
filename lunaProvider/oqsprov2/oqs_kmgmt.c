@@ -1587,20 +1587,45 @@ MAKE_KEM_KEYMGMT_FUNCTIONS(hqc256, OQS_KEM_alg_hqc_256, 256)
 MAKE_KEM_ECP_KEYMGMT_FUNCTIONS(p521_hqc256, OQS_KEM_alg_hqc_256, 256)
 ///// OQS_TEMPLATE_FRAGMENT_KEYMGMT_FUNCTIONS_END
 
-#define LUNA_ASSERT(_expr) \
-    ((!(_expr)) ? (fprintf(stderr, "LUNA_ASSERT: %s: %u: %s.\n", __FILE__, __LINE__, #_expr), (exit(-1), -1)) : 0)
-
 void *luna_oqs_recreate_key(luna_uri_ctx *urictx, void *provctx, int selection)
 {
-    LUNA_ASSERT(urictx != NULL);
-    void *genctx = mldsa87_gen_init(provctx, selection); // FIXME:SW:algo!
-    LUNA_ASSERT(genctx != NULL);
+    void *genctx = NULL;
+    LUNA_PRINTF(("ulKeyType = 0x%lX\n", urictx->ulKeyType));
+    LUNA_PRINTF(("ulSubType = %lu\n", urictx->ulSubType));
+    LUNA_PRINTF(("hPrivate = %lu\n", urictx->hPrivate));
+    LUNA_PRINTF(("hPublic = %lu\n", urictx->hPublic));
+    if (urictx->ulKeyType == LUNA_FW_CKK_ML_DSA) {
+        switch (urictx->ulSubType) {
+        case LUNA_FW_CKP_ML_DSA_44:
+            genctx = mldsa44_gen_init(provctx, selection);
+            break;
+        case LUNA_FW_CKP_ML_DSA_65:
+            genctx = mldsa65_gen_init(provctx, selection);
+            break;
+        case LUNA_FW_CKP_ML_DSA_87:
+            genctx = mldsa87_gen_init(provctx, selection);
+            break;
+        default:
+            // TODO: hybrid? composite?
+            genctx = NULL;
+            break;
+        }
+    } else {
+        // TODO: ecx? more?
+    }
+
+    LUNA_PRINTF(("genctx = %p\n", genctx));
+    if (genctx == NULL) {
+        return NULL;
+    }
+
     oqsx_gen_ctx_set_urictx(genctx, urictx);
-    LUNA_PRINTF(("oqsx_genkey\n"));
     void *oqsx_key = oqsx_genkey(genctx);
-    LUNA_ASSERT(oqsx_key != NULL);
+    LUNA_PRINTF(("oqsx_key = %p\n", oqsx_key));
     // oqsx_genkey takes ownership of urictx
     urictx = NULL;
+    oqsx_gen_ctx_set_urictx(genctx, NULL);
+    // clean
     (void) oqsx_gen_cleanup(genctx);
     genctx = NULL;
     return oqsx_key;

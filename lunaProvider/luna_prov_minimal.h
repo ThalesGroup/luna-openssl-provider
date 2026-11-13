@@ -176,12 +176,26 @@ void luna_prov_debug_ex(const char *prefix, const char *prefix2, const unsigned 
 /* uri context */
 typedef struct luna_uri_ctx_st {
     int magic;
+    unsigned long ulKeyType;
+    unsigned long ulSubType;
     unsigned long hPrivate;
     unsigned long hPublic;
 } luna_uri_ctx;
 
 void luna_prov_key_ctx_set_urictx(luna_prov_key_ctx *keyctx, luna_uri_ctx *urictx);
 luna_uri_ctx *luna_prov_key_ctx_get_urictx(luna_prov_key_ctx *keyctx);
+
+/* misc */
+#define LUNA_FW_CKK_ML_DSA 0x0000004aUL
+#define LUNA_FW_CKK_ML_KEM 0x00000049UL
+
+#define LUNA_FW_CKP_ML_DSA_44 1
+#define LUNA_FW_CKP_ML_DSA_65 2
+#define LUNA_FW_CKP_ML_DSA_87 3
+
+#define LUNA_FW_CKP_ML_KEM_512 1
+#define LUNA_FW_CKP_ML_KEM_768 2
+#define LUNA_FW_CKP_ML_KEM_1024 3
 
 #endif // _LUNA_PROV_MINIMAL_H
 

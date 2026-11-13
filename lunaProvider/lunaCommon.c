@@ -3493,12 +3493,6 @@ void luna_getenv_LUNAPROV_init(void) {
 
 #ifdef LUNA_OQS
 
-#define LUNA_FW_CKK_ML_DSA 0x0000004aUL
-#define LUNA_FW_CKK_ML_KEM 0x00000049UL
-
-#define LUNA_IS_CKK_ML_DSA(_ckk) ((_ckk) == LUNA_FW_CKK_ML_DSA)
-#define LUNA_IS_CKK_EC_ED(_ckk) ((_ckk) == CKK_EC_EDWARDS)
-
 // translate from FM codes to FW codes (main firmware)
 static void LunaTranslateFM2FW(luna_prov_key_ctx *keyctx, CK_KEY_TYPE *pkeytype,
         CK_KEY_PARAMS *pparams, CK_MECHANISM *ptypeGenerate,
@@ -3559,15 +3553,15 @@ static void LunaTranslateFM2FW(luna_prov_key_ctx *keyctx, CK_KEY_TYPE *pkeytype,
             switch (*pparams) {
             case CKP_ML_KEM_512:
             case CKP_ML_KEM_512_IPD:
-                *pparams = 1; /* TODO: hardcoded */
+                *pparams = LUNA_FW_CKP_ML_KEM_512;
                 break;
             case CKP_ML_KEM_768:
             case CKP_ML_KEM_768_IPD:
-                *pparams = 2; /* TODO: hardcoded */
+                *pparams = LUNA_FW_CKP_ML_KEM_768;
                 break;
             case CKP_ML_KEM_1024:
             case CKP_ML_KEM_1024_IPD:
-                *pparams = 3; /* TODO: hardcoded */
+                *pparams = LUNA_FW_CKP_ML_KEM_1024;
                 break;
             default:
                 *pparams = 0;
@@ -3579,15 +3573,15 @@ static void LunaTranslateFM2FW(luna_prov_key_ctx *keyctx, CK_KEY_TYPE *pkeytype,
             switch (*pparams) {
             case CKP_ML_DSA_44:
             case CKP_ML_DSA_44_IPD:
-                *pparams = 1; /* TODO: hardcoded */
+                *pparams = LUNA_FW_CKP_ML_DSA_44;
                 break;
             case CKP_ML_DSA_65:
             case CKP_ML_DSA_65_IPD:
-                *pparams = 2; /* TODO: hardcoded */
+                *pparams = LUNA_FW_CKP_ML_DSA_65;
                 break;
             case CKP_ML_DSA_87:
             case CKP_ML_DSA_87_IPD:
-                *pparams = 3; /* TODO: hardcoded */
+                *pparams = LUNA_FW_CKP_ML_DSA_87;
                 break;
             default:
                 *pparams = 0;
@@ -3921,18 +3915,25 @@ const char *luna_tls_name(const char *txt) {
     return tls_name;
 }
 
+static CK_ULONG luna_prov_load_subtype(CK_ULONG ckKeyType, luna_context_t *pctx,
+    CK_OBJECT_HANDLE hPublicIn, CK_OBJECT_HANDLE hPrivateIn);
+
 static EVP_PKEY *luna_prov_load_keytype(CK_ULONG ckKeyType, luna_context_t *pctx,
     CK_OBJECT_HANDLE hPublicIn, CK_OBJECT_HANDLE hPrivateIn, int hintPublic, void **ppoqskey) {
     EVP_PKEY *rckey = NULL;
-    if (LUNA_IS_CKK_ML_DSA(ckKeyType)) { // FIXME:SW:algos!
+    if ( ! ( (ckKeyType == CKK_RSA) || (ckKeyType == CKK_DSA) || (ckKeyType == CKK_ECDSA) ) ) {
         extern void *luna_oqs_recreate_key(luna_uri_ctx *urictx, void *provctx, int selection);
         const int selection = hintPublic ? OSSL_KEYMGMT_SELECT_PUBLIC_KEY : OSSL_KEYMGMT_SELECT_PRIVATE_KEY; //OSSL_KEYMGMT_SELECT_KEYPAIR;
         luna_uri_ctx *urictx = (luna_uri_ctx*)OPENSSL_zalloc(sizeof(*urictx));
         if (urictx == NULL)
             return NULL;
+        urictx->ulKeyType = ckKeyType;
+        urictx->ulSubType = luna_prov_load_subtype(ckKeyType, pctx,
+            hPublicIn, hPrivateIn);
         urictx->hPublic = hPublicIn;
         urictx->hPrivate = hPrivateIn;
-        OQSX_KEY *oqsx_key = luna_oqs_recreate_key(urictx, NULL, selection);
+        void *provctx = NULL; // TODO:
+        OQSX_KEY *oqsx_key = luna_oqs_recreate_key(urictx, provctx, selection);
         if (oqsx_key != NULL) {
             // caller takes ownership
             *ppoqskey = oqsx_key;
@@ -3942,9 +3943,8 @@ static EVP_PKEY *luna_prov_load_keytype(CK_ULONG ckKeyType, luna_context_t *pctx
             OPENSSL_free(urictx);
             urictx = NULL;
         }
-    } else {
-        //  FIXME:SW: more algos
     }
+    // TODO: hybrid? composite? ecx?
     return rckey;
 }
 
@@ -3956,3 +3956,21 @@ luna_uri_ctx *luna_prov_key_ctx_get_urictx(luna_prov_key_ctx *keyctx) {
     return keyctx->urictx;
 }
 
+static CK_ULONG luna_prov_load_subtype(CK_ULONG ckKeyType, luna_context_t *pctx,
+    CK_OBJECT_HANDLE hPublicIn, CK_OBJECT_HANDLE hPrivateIn) {
+    CK_OBJECT_HANDLE hKey = hPrivateIn ? hPrivateIn : hPublicIn;
+    if (!hKey)
+        return 0;
+    if ( ! (ckKeyType == CKK_MLDSA || ckKeyType == LUNA_FW_CKK_ML_DSA) )
+        return 0;
+    CK_SESSION_HANDLE hSession = pctx->hSession;
+    CK_KEY_PARAMS ckParam = CKP_INVALID;
+    CK_ATTRIBUTE ckTemplate[] = {
+        {CKA_PARAMETER_SET, &ckParam, sizeof(ckParam)}
+    };
+    CK_RV rv = P11->C_GetAttributeValue(hSession, hKey, ckTemplate, DIM(ckTemplate));
+    if (rv != CKR_OK)
+        return 0;
+    // TODO: hybrid? composite? ecx?
+    return ckParam;
+}
