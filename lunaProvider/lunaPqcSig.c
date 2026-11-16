@@ -423,9 +423,9 @@ static CK_RV LunaPqcFind(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo)
             rv = LunaFind(keyctx, pkeyinfo, publicTemplate, 1, &publicObjectHandle);
         }
     } else {
-        publicObjectHandle = keyctx->urictx->hPublic;
-        privateObjectHandle = keyctx->urictx->hPrivate;
-#if 1
+        publicObjectHandle = keyctx->urictx->current ? keyctx->urictx->current->pub.handle : 0;
+        privateObjectHandle = keyctx->urictx->current ? keyctx->urictx->current->pri.handle : 0;
+#if 0
         // FIXME:SW: relax the rule to have both private and public at the same time
         rv = (publicObjectHandle || privateObjectHandle) ? CKR_OK : CKR_OBJECT_HANDLE_INVALID;
 #else
@@ -459,18 +459,22 @@ static CK_RV LunaPqcFind(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo)
     return rv;
 }
 
+#define curve_ed25519_len 11
 static unsigned char curve_ed25519[] = {
     0x06, 0x09, 0x2B, 0x06, 0x01, 0x04, 0x01, 0xDA, 0x47, 0x0F, 0x01 /* [613] ed25519 */
 };
 
+#define curve_ed448_len 5
 static unsigned char curve_ed448[] = {
     0x06, 0x03, 0x2B, 0x65, 0x71 /* [639] ed448*/
 };
 
+#define curve_x25519_len 12
 static unsigned char curve_x25519[] = {
     0x06, 0x0a, 0x2b, 0x06, 0x01, 0x04, 0x01, 0x97, 0x55, 0x01, 0x05, 0x01 /* [601] x25519 */
 };
 
+#define curve_x448_len 5
 static unsigned char curve_x448[] = {
     0x06, 0x03, 0x2B, 0x65, 0x6F /* [634] x448 */
 };
@@ -591,8 +595,8 @@ static CK_RV LunaPqcGen(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo, 
             privateTemplate, privateTemplateCount,
             &publicObjectHandle, &privateObjectHandle);
     } else {
-        publicObjectHandle = keyctx->urictx->hPublic;
-        privateObjectHandle = keyctx->urictx->hPrivate;
+        publicObjectHandle = keyctx->urictx->current ? keyctx->urictx->current->pub.handle : 0;
+        privateObjectHandle = keyctx->urictx->current ? keyctx->urictx->current->pri.handle : 0;
         // read the first three attributes ( CKA_LABEL, CKA_ID, CKA_TOKEN )
         rv = CKR_GENERAL_ERROR;
         if (privateObjectHandle || publicObjectHandle) {

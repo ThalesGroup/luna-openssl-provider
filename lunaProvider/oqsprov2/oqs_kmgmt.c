@@ -1587,31 +1587,56 @@ MAKE_KEM_KEYMGMT_FUNCTIONS(hqc256, OQS_KEM_alg_hqc_256, 256)
 MAKE_KEM_ECP_KEYMGMT_FUNCTIONS(p521_hqc256, OQS_KEM_alg_hqc_256, 256)
 ///// OQS_TEMPLATE_FRAGMENT_KEYMGMT_FUNCTIONS_END
 
+//
+// load pqc hybrid key from URI
+//
+
+#define DIM(a) (sizeof(a) / sizeof((a)[0]))
+
+typedef struct tls_name_gen_init_st {
+    int magic;
+    const char *tls_name;
+    void* (*gen_init)(void *provctx, int selection);
+} tls_name_gen_init;
+
+#define TLS_NAME_GEN_INIT_ENTRY(tn) { 0, #tn, tn##_gen_init }
+
+static tls_name_gen_init gen_init_tab[] = {
+    // mldsa44
+    TLS_NAME_GEN_INIT_ENTRY(mldsa44),
+    TLS_NAME_GEN_INIT_ENTRY(p256_mldsa44),
+    TLS_NAME_GEN_INIT_ENTRY(rsa3072_mldsa44),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa44_pss2048),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa44_rsa2048),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa44_ed25519),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa44_p256),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa44_bp256),
+    // mldsa65
+    TLS_NAME_GEN_INIT_ENTRY(mldsa65),
+    TLS_NAME_GEN_INIT_ENTRY(p384_mldsa65),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa65_pss3072),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa65_rsa3072),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa65_p256),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa65_bp256),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa65_ed25519),
+    // mldsa87
+    TLS_NAME_GEN_INIT_ENTRY(mldsa87),
+    TLS_NAME_GEN_INIT_ENTRY(p521_mldsa87),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa87_p384),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa87_bp384),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa87_ed448),
+};
+
 void *luna_oqs_recreate_key(luna_uri_ctx *urictx, void *provctx, int selection)
 {
     void *genctx = NULL;
-    LUNA_PRINTF(("ulKeyType = 0x%lX\n", urictx->ulKeyType));
-    LUNA_PRINTF(("ulSubType = %lu\n", urictx->ulSubType));
-    LUNA_PRINTF(("hPrivate = %lu\n", urictx->hPrivate));
-    LUNA_PRINTF(("hPublic = %lu\n", urictx->hPublic));
-    if (urictx->ulKeyType == LUNA_FW_CKK_ML_DSA) {
-        switch (urictx->ulSubType) {
-        case LUNA_FW_CKP_ML_DSA_44:
-            genctx = mldsa44_gen_init(provctx, selection);
-            break;
-        case LUNA_FW_CKP_ML_DSA_65:
-            genctx = mldsa65_gen_init(provctx, selection);
-            break;
-        case LUNA_FW_CKP_ML_DSA_87:
-            genctx = mldsa87_gen_init(provctx, selection);
-            break;
-        default:
-            // TODO: hybrid? composite?
-            genctx = NULL;
+    int i;
+    LUNA_PRINTF(("tls_name = %s\n", urictx->tls_name));
+    for (i = 0; i < DIM(gen_init_tab); i++) {
+        if (!strcmp(urictx->tls_name, gen_init_tab[i].tls_name)) {
+            genctx = gen_init_tab[i].gen_init(provctx, selection);
             break;
         }
-    } else {
-        // TODO: ecx? more?
     }
 
     LUNA_PRINTF(("genctx = %p\n", genctx));

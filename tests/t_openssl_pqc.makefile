@@ -31,7 +31,8 @@ PQCTYPE=mldsa87
 # sender/recipient cert file and key file
 KEYF1=tmppqc.pkey
 #KEY_URI_1=$(KEYF1)
-KEY_URI_1=pkcs11:$(KEYF1)
+#KEY_URI_1=pkcs11:$(KEYF1)
+KEY_URI_1=pkcs11:sk31d8955e3d066aa203141eed4413;pk31d8955e3d066aa203141eed4413
 
 CERTF1=tmppqc.crt
 

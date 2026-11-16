@@ -618,6 +618,7 @@ static int luna_ec_check_keypair1(const EVP_PKEY *pkey);
 #define LUNA_DSA_KEYSIZE_MIN (2048)
 #define LUNA_DSA_QBITS_MIN (224)
 #define LUNA_EC_KEYSIZE_MIN (224)
+#include "luna_prov_minimal.h"
 #else
 /* openssl security level 1 */
 #define LUNA_RSA_KEYSIZE_MIN (1024)
@@ -7264,12 +7265,32 @@ gather_method:
 #else /* LUNA_CONFIG_OSSL_PROVIDER */
             default: {
                /* NOTE: luna_prov_load_keytype_ may need to side-effect ctx.rv_last */
-               static EVP_PKEY *luna_prov_load_keytype(CK_ULONG ckKeyType, luna_context_t *pctx,
-                  CK_OBJECT_HANDLE hPublic, CK_OBJECT_HANDLE hPrivate, int hintPublic, void **ppoqskey);
-               rckey = luna_prov_load_keytype(ulType, &ctx,
-                       (ulClass == CKO_PUBLIC_KEY ? handle : LUNA_INVALID_HANDLE),
-                       (ulClass == CKO_PRIVATE_KEY ? handle : LUNA_INVALID_HANDLE),
-                       hintPublic, ppoqskey);
+               static EVP_PKEY *luna_prov_load_keytype(luna_context_t *pctx, luna_uri_ctx *urictx, void **ppoqskey);
+               //////// FIXME:SW: fix the iterator that calls me! ppoqskey should be a state machine!!
+               static luna_uri_ctx *urictx = NULL;
+               if (urictx == NULL) {
+                  urictx = luna_uri_ctx_new();
+                  urictx->hintPublic = hintPublic;
+                  urictx->current = &(urictx->items[0]);
+                  urictx->current->pri.handle = (ulClass == CKO_PRIVATE_KEY ? handle : 0);
+                  urictx->current->pub.handle = (ulClass == CKO_PUBLIC_KEY ? handle : 0);
+                  urictx->current->pri.type = ulType;
+                  *ppoqskey = ((void*)(size_t)17); // FIXME:SW:sentinel!
+               } else {
+                  urictx->current = &(urictx->items[0]);
+                  urictx->current->pub.handle = (ulClass == CKO_PUBLIC_KEY ? handle : 0);
+                  urictx->current->pub.type = ulType;
+                  urictx->count = 1;
+                  rckey = luna_prov_load_keytype(&ctx, urictx, ppoqskey);
+                  const void *poqskey = (ppoqskey == NULL) ? NULL : *ppoqskey;
+                  if (rckey == NULL && poqskey == NULL) {
+                     luna_uri_ctx_free(urictx);
+                     urictx = NULL;
+                  } else {
+                     urictx = NULL;
+                  }
+               }
+               /////////
             } break;
 #endif /* LUNA_CONFIG_OSSL_PROVIDER */
          }

@@ -174,16 +174,38 @@ const char *luna_tls_name(const char *txt);
 void luna_prov_debug_ex(const char *prefix, const char *prefix2, const unsigned char* p, size_t n);
 
 /* uri context */
+typedef struct luna_uri_item_detail_st {
+    unsigned long handle;
+    unsigned long type;
+    unsigned long subtype;
+    char *tls_name;
+} luna_uri_item_detail;
+
+typedef struct luna_uri_item_st {
+    int magic;
+    luna_uri_item_detail pri;
+    luna_uri_item_detail pub;
+    char *tls_name;
+} luna_uri_item;
+
+#define MAX_URI_ITEM 2
+
 typedef struct luna_uri_ctx_st {
     int magic;
-    unsigned long ulKeyType;
-    unsigned long ulSubType;
-    unsigned long hPrivate;
-    unsigned long hPublic;
+    int hintPublic;
+    // up to two items for hybrid/composite
+    int count;
+    luna_uri_item items[MAX_URI_ITEM];
+    luna_uri_item *current;
+    // hybrid name if any
+    char *tls_name;
 } luna_uri_ctx;
 
 void luna_prov_key_ctx_set_urictx(luna_prov_key_ctx *keyctx, luna_uri_ctx *urictx);
 luna_uri_ctx *luna_prov_key_ctx_get_urictx(luna_prov_key_ctx *keyctx);
+
+luna_uri_ctx *luna_uri_ctx_new(void);
+void luna_uri_ctx_free(luna_uri_ctx *urictx);
 
 /* misc */
 #define LUNA_FW_CKK_ML_DSA 0x0000004aUL
