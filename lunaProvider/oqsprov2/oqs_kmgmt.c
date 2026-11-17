@@ -101,8 +101,14 @@ static int oqsx_has(const void *keydata, int selection)
         if ((selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY) != 0)
             ok = ok && key->pubkey != NULL;
 
-        if ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0)
+        if ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0) {
             ok = ok && key->privkey != NULL;
+            if (ok) {
+                if (key->lunakeyctx && luna_prov_key_ctx_is_public(key->lunakeyctx)) {
+                    ok = 0;
+                }
+            }
+        }
     }
     if (!ok)
         OQS_KM_PRINTF2("OQSKM: has returning FALSE on selection %2x\n",

@@ -1329,6 +1329,7 @@ static int LUNA_OQS_QUERY_classic_keypair(luna_prov_key_ctx *keyctx) {
             { "pss3072", CKK_RSA },
             { "pss2048", CKK_RSA },
             { "bp256", CKK_EC },
+            { "bp384", CKK_EC },
             { "p256", CKK_EC },
             { "p384", CKK_EC },
             { "p521", CKK_EC },
@@ -3776,6 +3777,39 @@ static void LUNA_FIND_CTX_free_uris(LUNA_FIND_CTX *ctx);
 /* for find object by uri */
 LUNA_FIND_CTX *LUNA_FIND_CTX_new(const char *uri) {
     LUNA_PRINTF(("uri=%s\n", uri));
+    // TODO: unsupported URI syntax (rfc7512) - implemented some day
+    char *tmp = strstr(uri, ";");
+    if ( tmp && strstr(tmp+1, ";") ) {
+        LUNA_PRINTF(("ERROR: unsupported URI syntax (multiple semi-colon).\n"));
+        return NULL;
+    }
+    if ( (tmp=strstr(uri, "object="))
+        || (tmp=strstr(uri, "type="))
+        || (tmp=strstr(uri, "tlsname="))
+        ) {
+        LUNA_PRINTF(("ERROR: unsupported URI syntax at %s .\n", tmp));
+        return NULL;
+    }
+    // unsupported URI syntax (rfc7512)
+    if ( (tmp=strstr(uri, "id="))
+        ) {
+        LUNA_PRINTF(("ERROR: unsupported URI syntax at %s .\n", tmp));
+        return NULL;
+    }
+    // unsupported URI syntax (rfc7512) - implemented never
+    if ( (tmp=strstr(uri, "library-description="))
+        || (tmp=strstr(uri, "library-manufacturer="))
+        || (tmp=strstr(uri, "manufacturer="))
+        || (tmp=strstr(uri, "model="))
+        || (tmp=strstr(uri, "serial="))
+        || (tmp=strstr(uri, "slot-description="))
+        || (tmp=strstr(uri, "slot-id="))
+        || (tmp=strstr(uri, "slot-manufacturer="))
+        || (tmp=strstr(uri, "token="))
+        ) {
+        LUNA_PRINTF(("ERROR: unsupported URI syntax at %s .\n", tmp));
+        return NULL;
+    }
     char *uri_dup = OPENSSL_strdup(uri);
     if (uri_dup == NULL)
         return NULL;
@@ -3851,11 +3885,16 @@ int LUNA_FIND_CTX_next(LUNA_FIND_CTX *ctx) {
                 NULL, NULL, 0, &poqskey);
         }
         break;
-#if 0 // FIXME:SW: would only call this if user specified public key only
+#if 1 // FIXME:SW: would only call this if user specified public key only
     case 1:
         // load PUBKEY (public key required)
         pkey = luna_load_anykey(NULL, (ctx->uris[1] != NULL ? ctx->uris[1] : ctx->uris[0]),
             NULL, NULL, 1, &poqskey);
+        if (poqskey == ((void*)(size_t)17)) { // FIXME:SW:sentinel!
+            poqskey = NULL;
+            pkey = luna_load_anykey(NULL, (ctx->uris[1] != NULL ? ctx->uris[1] : ctx->uris[0]),
+                NULL, NULL, 1, &poqskey);
+        }
         break;
 #endif
     default:
@@ -3939,7 +3978,7 @@ void luna_uri_ctx_free(luna_uri_ctx *p) {
     OPENSSL_free(p);
 }
 
-static void luna_prov_load_subtype(luna_context_t *pctx,
+static void luna_prov_load_subtype(luna_context_t *pctx, luna_uri_ctx *urictx,
     luna_uri_item_detail *pdetail);
 
 static void luna_prov_load_tls_name(luna_context_t *pctx,
@@ -3955,6 +3994,7 @@ static EVP_PKEY *luna_prov_load_keytype(luna_context_t *pctx, luna_uri_ctx *uric
         return NULL;
 
     LUNA_PRINTF(("hintPublic = %d\n", urictx->hintPublic));
+    LUNA_PRINTF(("hint_tls_name = %s\n", urictx->hint_tls_name));
     LUNA_PRINTF(("count = %d\n", urictx->count));
     if ( urictx->count < 1 || urictx->count > MAX_URI_ITEM )
         return NULL;
@@ -3962,8 +4002,8 @@ static EVP_PKEY *luna_prov_load_keytype(luna_context_t *pctx, luna_uri_ctx *uric
     // determine the exact subtype (keysize)
     for ( i = 0; i < urictx->count; i++) {
         uitem = &urictx->items[i];
-        (void) luna_prov_load_subtype(pctx, &(uitem->pri));
-        (void) luna_prov_load_subtype(pctx, &(uitem->pub));
+        (void) luna_prov_load_subtype(pctx, urictx, &(uitem->pri));
+        (void) luna_prov_load_subtype(pctx, urictx, &(uitem->pub));
         LUNA_PRINTF(("[%d] pri:\n", i));
         LUNA_PRINTF(("  handle = %lu\n", uitem->pri.handle));
         LUNA_PRINTF(("  type = %lu\n", uitem->pri.type));
@@ -3974,7 +4014,7 @@ static EVP_PKEY *luna_prov_load_keytype(luna_context_t *pctx, luna_uri_ctx *uric
         LUNA_PRINTF(("  type = %lu\n", uitem->pub.type));
         LUNA_PRINTF(("  subtype = %lu\n", uitem->pub.subtype));
         LUNA_PRINTF(("  tls_name = %s\n", uitem->pub.tls_name));
-        if ( uitem->pri.handle == 0 && uitem->pri.handle == 0 )
+        if ( uitem->pri.handle == 0 && uitem->pub.handle == 0 )
             return NULL;
         if ( uitem->pri.handle != 0 ) {
             if ( uitem->pub.handle != 0 ) {
@@ -3983,12 +4023,13 @@ static EVP_PKEY *luna_prov_load_keytype(luna_context_t *pctx, luna_uri_ctx *uric
                     return NULL;
                 if ( uitem->pub.subtype != uitem->pri.subtype )
                     return NULL;
+                if ( uitem->pri.subtype == 0 )
+                    return NULL;
                 if ( uitem->pub.tls_name == NULL ||  uitem->pri.tls_name == NULL )
                     return NULL;
             } else {
                 // just private key
-                if ( uitem->pri.type == 0 )
-                    return NULL;
+                // pri.type could be zero as in CKK_RSA
                 if ( uitem->pri.subtype == 0 )
                     return NULL;
                 if ( uitem->pri.tls_name == NULL )
@@ -3997,8 +4038,7 @@ static EVP_PKEY *luna_prov_load_keytype(luna_context_t *pctx, luna_uri_ctx *uric
         } else {
             // just public key
             LUNA_ASSERT( uitem->pub.handle != 0 );
-            if ( uitem->pub.type == 0 )
-                return NULL;
+            // pub.type could be zero as in CKK_RSA
             if ( uitem->pub.subtype == 0 )
                 return NULL;
             if ( uitem->pub.tls_name == NULL )
@@ -4007,13 +4047,24 @@ static EVP_PKEY *luna_prov_load_keytype(luna_context_t *pctx, luna_uri_ctx *uric
 
         // share tls_name
         uitem->tls_name = uitem->pri.tls_name ? uitem->pri.tls_name : uitem->pub.tls_name;
-        LUNA_PRINTF(("tls_name = %s\n", uitem->tls_name));
+        LUNA_PRINTF(("shared tls_name = %s\n", uitem->tls_name));
         if ( uitem->tls_name == NULL )
             return NULL;
     }
 
-    // determine the exact tls_name
+    // determine the output tls_name
     (void) luna_prov_load_tls_name(pctx, urictx);
+    LUNA_PRINTF(("output tls_name = %s\n", urictx->tls_name));
+    if ( urictx->tls_name == NULL )
+        return NULL;
+
+    // output tls_name should match input tls_name (if given)
+    if (urictx->hint_tls_name != NULL) {
+        if (strcmp(urictx->hint_tls_name, urictx->tls_name) != 0) {
+            LUNA_PRINTF(("ERROR: tls_name != hint_tls_name\n"));
+            return NULL;
+        }
+    }
 
     if (1) {
         extern void *luna_oqs_recreate_key(luna_uri_ctx *urictx, void *provctx, int selection);
@@ -4041,15 +4092,24 @@ luna_uri_ctx *luna_prov_key_ctx_get_urictx(luna_prov_key_ctx *keyctx) {
     return keyctx->urictx;
 }
 
+int luna_prov_key_ctx_is_public(luna_prov_key_ctx *keyctx) {
+    if (keyctx->urictx == NULL)
+        return 0;
+    return keyctx->urictx->hintPublic;
+}
+
 static CK_ULONG CKA_PARAMETER_SET_to_subtype_mldsa(CK_ULONG ckParam, char **tls_name);
 static CK_ULONG CKA_ECDSA_PARAMS_to_subtype(void *pValue, CK_ULONG ulValueLen, char **tls_name);
+static CK_ULONG CKA_MODULUS_to_subtype(void *pValue, CK_ULONG ulValueLen, int is_pss, char **tls_name);
 
-static void luna_prov_load_subtype(luna_context_t *pctx, luna_uri_item_detail *udetail) {
+static void luna_prov_load_subtype(luna_context_t *pctx, luna_uri_ctx *urictx,
+    luna_uri_item_detail *udetail) {
+    CK_SESSION_HANDLE hSession = pctx->hSession;
     CK_OBJECT_HANDLE hKey = udetail->handle;
     if (!hKey)
         return;
     if ( (udetail->type == CKK_MLDSA || udetail->type == LUNA_FW_CKK_ML_DSA) ) {
-        CK_SESSION_HANDLE hSession = pctx->hSession;
+        // mldsa has CKA_PARAMETER_SET
         CK_KEY_PARAMS ckParam = CKP_INVALID;
         CK_ATTRIBUTE ckTemplate[] = {
             {CKA_PARAMETER_SET, &ckParam, sizeof(ckParam)}
@@ -4059,10 +4119,10 @@ static void luna_prov_load_subtype(luna_context_t *pctx, luna_uri_item_detail *u
             return;
         udetail->subtype = CKA_PARAMETER_SET_to_subtype_mldsa(ckParam, &udetail->tls_name);
         return;
-    } else if (udetail->type == CKK_EC) {
-        CK_SESSION_HANDLE hSession = pctx->hSession;
+    } else if ( (udetail->type == CKK_EC) || (udetail->type == CKK_EC_EDWARDS) ) {
+        // ec has CKA_ECDSA_PARAMS
         CK_KEY_PARAMS ckParam = CKP_INVALID;
-        CK_BYTE curveXX[] = {0};
+        CK_BYTE curveXX[16] = {0};
         CK_ATTRIBUTE ckTemplate[] = {
             {CKA_ECDSA_PARAMS, &curveXX, sizeof(curveXX)}
         };
@@ -4071,7 +4131,20 @@ static void luna_prov_load_subtype(luna_context_t *pctx, luna_uri_item_detail *u
             return;
         udetail->subtype = CKA_ECDSA_PARAMS_to_subtype(ckTemplate[0].pValue, ckTemplate[0].ulValueLen, &udetail->tls_name);
         return;
+    } else if (udetail->type == CKK_RSA) {
+        // rsa public has CKA_MODULUS_BITS
+        // rsa private/public has CKA_MODULUS
+        CK_ATTRIBUTE ckTemplate[] = {
+            {CKA_MODULUS, 0, 0}
+        };
+        CK_RV rv = P11->C_GetAttributeValue(hSession, hKey, ckTemplate, DIM(ckTemplate));
+        if (rv != CKR_OK)
+            return;
+        const int is_pss = (urictx->hint_tls_name) ? (strstr(urictx->hint_tls_name, "pss") ? 1 : 0) : 0;
+        udetail->subtype = CKA_MODULUS_to_subtype(ckTemplate[0].pValue, ckTemplate[0].ulValueLen, is_pss, &udetail->tls_name);
+        return;
     }
+    // TODO: see function gen_init_tab in case you add more algorithms
 }
 
 static CK_ULONG CKA_PARAMETER_SET_to_subtype_mldsa(CK_ULONG ckParam, char **tls_name) {
@@ -4134,6 +4207,21 @@ static CK_ULONG CKA_ECDSA_PARAMS_to_subtype(void *pValue, CK_ULONG ulValueLen, c
             *tls_name = OPENSSL_strdup(curve_tab[i].tls_name);
             return i;
         }
+    }
+    return 0;
+}
+
+static CK_ULONG CKA_MODULUS_to_subtype(void *pValue, CK_ULONG ulValueLen, int is_pss, char **tls_name) {
+    if ( (ulValueLen >= (2048/8)) && (ulValueLen <= (8192/8)) ) {
+        CK_ULONG ulBits = (ulValueLen * 8);
+        char sz[32] = {0};
+        if (is_pss) {
+            (void) snprintf(sz, sizeof(sz), "pss%u", (unsigned)ulBits);
+        } else {
+            (void) snprintf(sz, sizeof(sz), "rsa%u", (unsigned)ulBits);
+        }
+        *tls_name = OPENSSL_strdup(sz);
+        return ulBits;
     }
     return 0;
 }

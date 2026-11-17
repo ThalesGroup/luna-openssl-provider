@@ -26,7 +26,7 @@ ASFLAGS=
 CPPFLAGS=-D"_CRT_SECURE_NO_WARNINGS"
 CFLAGS=/W3 /wd4090 /nologo /Od
 LD="LINK.EXE"
-LDFLAGS=/nologo /wd4099 /debug
+LDFLAGS=/nologo /debug
 EX_LIBS=
 
 CNF_ASFLAGS=/c /Cp /Cx

@@ -192,7 +192,9 @@ typedef struct luna_uri_item_st {
 
 typedef struct luna_uri_ctx_st {
     int magic;
+    // hints coming from the user (optional)
     int hintPublic;
+    char *hint_tls_name;
     // up to two items for hybrid/composite
     int count;
     luna_uri_item items[MAX_URI_ITEM];
@@ -203,6 +205,9 @@ typedef struct luna_uri_ctx_st {
 
 void luna_prov_key_ctx_set_urictx(luna_prov_key_ctx *keyctx, luna_uri_ctx *urictx);
 luna_uri_ctx *luna_prov_key_ctx_get_urictx(luna_prov_key_ctx *keyctx);
+int luna_prov_key_ctx_is_public(luna_prov_key_ctx *keyctx);
+
+void *luna_oqs_recreate_key(luna_uri_ctx *urictx, void *provctx, int selection);
 
 luna_uri_ctx *luna_uri_ctx_new(void);
 void luna_uri_ctx_free(luna_uri_ctx *urictx);

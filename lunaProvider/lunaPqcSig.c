@@ -425,7 +425,7 @@ static CK_RV LunaPqcFind(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo)
     } else {
         publicObjectHandle = keyctx->urictx->current ? keyctx->urictx->current->pub.handle : 0;
         privateObjectHandle = keyctx->urictx->current ? keyctx->urictx->current->pri.handle : 0;
-#if 0
+#if 1
         // FIXME:SW: relax the rule to have both private and public at the same time
         rv = (publicObjectHandle || privateObjectHandle) ? CKR_OK : CKR_OBJECT_HANDLE_INVALID;
 #else
