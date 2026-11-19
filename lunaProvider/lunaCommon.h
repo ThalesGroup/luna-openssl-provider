@@ -189,6 +189,7 @@ typedef struct ecx_gen_ctx {
     size_t dhkem_ikmlen;
     /* added for luna hsm */
     luna_prov_key_ctx *lunakeyctx;
+    luna_uri_ctx *urictx;
 } PROV_ECX_GEN_CTX;
 
 int luna_prov_ecx_dhkem_derive_private(struct ecx_gen_ctx *gctx,
@@ -326,12 +327,13 @@ struct luna_context_st;
 
 typedef struct LUNA_PKEY_CTX_st {
     void *xkey; // EVP_PKEY or OQSX_KEY
-    int xtype; // EVP_PKEY(0) or OQSX_KEY(1)
+    int xtype; // EVP_PKEY(0) or OQSX_KEY(1) or ECX_KEY(2)
     union {
         RSA *rsa;
         DSA *dsa;
         EC_KEY *ec;
         void *pqc;
+        void *ecx;
     } kk;
 } LUNA_PKEY_CTX;
 

@@ -563,6 +563,8 @@ static void *ecx_gen_init(void *provctx, int selection,
             break;
         }
 
+        //luna_prov_key_ctx_set_urictx(gctx->lunakeyctx, gctx->urictx); ??
+
         if (!ecx_gen_set_params(gctx, params)) {
             LUNA_OQS_free(gctx->lunakeyctx);
             gctx->lunakeyctx = 0;
@@ -695,6 +697,10 @@ static void *ecx_gen(struct ecx_gen_ctx *gctx)
         ERR_raise(ERR_LIB_PROV, ERR_R_EC_LIB);
         goto err;
     }
+
+    LUNA_PRINTF(("luna_prov_key_ctx_set_urictx\n"));
+    luna_prov_key_ctx_set_urictx(gctx->lunakeyctx, gctx->urictx);
+
 #ifndef FIPS_MODULE
     if (gctx->dhkem_ikm != NULL && gctx->dhkem_ikmlen != 0) {
         if (gctx->type == ECX_KEY_TYPE_ED25519
@@ -1189,7 +1195,7 @@ static void *s390x_ecd_keygen448(struct ecx_gen_ctx *gctx)
     EVP_MD_free(shake);
     return NULL;
 }
-#endif
+#endif // S390X_EC_ASM
 
 static int luna_ecx_key_pairwise_check(const ECX_KEY *ecx, int type)
 {
@@ -1203,6 +1209,61 @@ static int luna_ecx_key_pairwise_check(const ECX_KEY *ecx, int type)
         return 0;
     }
     return 0;
+}
+
+//
+// load ecx key from URI
+//
+
+#define DIM(a) (sizeof(a) / sizeof((a)[0]))
+
+typedef struct tls_name_gen_init_st {
+    int magic;
+    const char *tls_name;
+    void* (*gen_init)(void *provctx, int selection, const OSSL_PARAM params[]);
+} tls_name_gen_init;
+
+#define TLS_NAME_GEN_INIT_ENTRY(tn) { 0, #tn, tn##_gen_init }
+
+static tls_name_gen_init gen_init_tab[] = {
+    TLS_NAME_GEN_INIT_ENTRY(ed25519),
+    TLS_NAME_GEN_INIT_ENTRY(ed448),
+    TLS_NAME_GEN_INIT_ENTRY(x25519),
+    TLS_NAME_GEN_INIT_ENTRY(x448),
+};
+
+static void ecx_gen_ctx_set_urictx(struct ecx_gen_ctx *gctx, luna_uri_ctx *urictx)
+{
+    gctx->urictx = urictx;
+}
+
+void *luna_ecx_recreate_key(luna_uri_ctx *urictx, void *provctx, int selection/*, const OSSL_PARAM params[]*/)
+{
+    void *genctx = NULL;
+    int i;
+    LUNA_PRINTF(("tls_name = %s\n", urictx->tls_name));
+    for (i = 0; i < DIM(gen_init_tab); i++) {
+        if (!strcmp(urictx->tls_name, gen_init_tab[i].tls_name)) {
+            genctx = gen_init_tab[i].gen_init(provctx, selection, NULL/*params*/);
+            break;
+        }
+    }
+
+    LUNA_PRINTF(("genctx = %p\n", genctx));
+    if (genctx == NULL) {
+        return NULL;
+    }
+
+    ecx_gen_ctx_set_urictx(genctx, urictx);
+    void *ecx_key = ecx_gen(genctx);
+    LUNA_PRINTF(("ecx_key = %p\n", ecx_key));
+    // ecx_genkey takes ownership of urictx
+    urictx = NULL;
+    ecx_gen_ctx_set_urictx(genctx, NULL);
+    // clean
+    (void) ecx_gen_cleanup(genctx);
+    genctx = NULL;
+    return ecx_key;
 }
 
 #endif // LUNA_OQS

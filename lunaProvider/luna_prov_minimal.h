@@ -208,6 +208,7 @@ luna_uri_ctx *luna_prov_key_ctx_get_urictx(luna_prov_key_ctx *keyctx);
 int luna_prov_key_ctx_is_public(luna_prov_key_ctx *keyctx);
 
 void *luna_oqs_recreate_key(luna_uri_ctx *urictx, void *provctx, int selection);
+void *luna_ecx_recreate_key(luna_uri_ctx *urictx, void *provctx, int selection/*, const OSSL_PARAM params[]*/);
 
 luna_uri_ctx *luna_uri_ctx_new(void);
 void luna_uri_ctx_free(luna_uri_ctx *urictx);

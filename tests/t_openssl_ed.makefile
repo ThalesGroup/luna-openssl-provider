@@ -20,6 +20,10 @@ include t_openssl_common.include
 
 # sender/recipient cert file and key file
 KEYF1=tmped.pkey
+#KEY_URI_1=$(KEYF1)
+#KEY_URI_1=pkcs11:$(KEYF1)
+KEY_URI_1=pkcs11:sk4YddbfVjd3jeCDOo7oxnmQ;pk4YddbfVjd3jeCDOo7oxnmQ
+
 CERTF1=tmped.crt
 
 # CA cert file
@@ -62,7 +66,7 @@ tmped.foo:
 		touch tmped.foo
 
 check0:
-	openssl pkey -$(HW_ENGINE) -in tmped.pkey -noout -text -check -pubcheck
+	openssl pkey -$(HW_ENGINE) -in $(KEY_URI_1) -noout -text -check -pubcheck
 	@echo '--------'
 
 # NOTE: set digest to prove we can override the default of sha256
@@ -93,7 +97,7 @@ SIGOPT_ED=
 # NOTE: operation not supported (default provider) for this keytype (ed)
 sign1:
 	openssl dgst -$(ED_MD) -out message.dig -binary message.txt
-	openssl pkeyutl $(HW_ENGINE) $(HW_KEYFORM) -sign -in message.dig -inkey tmped.pkey -out message.sig $(PKEYOPT_ED)
+	openssl pkeyutl $(HW_ENGINE) $(HW_KEYFORM) -sign -in message.dig -inkey $(KEY_URI_1) -out message.sig $(PKEYOPT_ED)
 	openssl pkeyutl $(SW_ENGINE) -verify -in message.dig -inkey tmped.pkey -sigfile message.sig $(PKEYOPT_ED)
 	@echo '--------'
 
@@ -101,7 +105,7 @@ sign1:
 # hash in software, sign in hardware, verify in software
 # NOTE: operation not supported (default provider) for this keytype (ed)
 sign2:
-	openssl dgst $(HW_ENGINE) $(HW_KEYFORM) -sign tmped.pkey -$(ED_MD) -out message.sig $(SIGOPT_ED)  message.txt
+	openssl dgst $(HW_ENGINE) $(HW_KEYFORM) -sign $(KEY_URI_1) -$(ED_MD) -out message.sig $(SIGOPT_ED)  message.txt
 	openssl dgst $(SW_ENGINE) -prverify tmped.pkey -$(ED_MD) -signature message.sig $(SIGOPT_ED)  message.txt
 	@echo '--------'
 

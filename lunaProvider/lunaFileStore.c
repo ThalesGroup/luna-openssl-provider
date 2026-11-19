@@ -1045,7 +1045,7 @@ static int file_load_pkcs11_object(struct file_ctx_st *ctx,
 
     LUNA_PKEY_CTX *pkctx = find_ctx->current;
     LUNA_ASSERT(pkctx != NULL);
-    LUNA_ASSERT(pkctx->xtype == 0 || pkctx->xtype == 1);
+    LUNA_ASSERT(pkctx->xtype >= 0 && pkctx->xtype <= 2);
     int object_type = OSSL_OBJECT_UNKNOWN;
     char *data_type = NULL;
     void *reference = NULL;
@@ -1084,7 +1084,7 @@ static int file_load_pkcs11_object(struct file_ctx_st *ctx,
             return 0;
         }
 
-    } else {
+    } else if (pkctx->xtype == 1) {
         OQSX_KEY *poqskey = (OQSX_KEY *)pkctx->xkey;
         LUNA_ASSERT(poqskey != NULL);
         // NOTE: OSSL_OBJECT_PKEY meaning openssl shall create a PKEY using the reference supplied here
@@ -1093,6 +1093,32 @@ static int file_load_pkcs11_object(struct file_ctx_st *ctx,
         data_type = poqskey->tls_name;
         pkctx->kk.pqc = poqskey;
         reference = (void*)&pkctx->kk.pqc;
+        reference_sz = sizeof(reference);
+
+    } else if (pkctx->xtype == 2) {
+        ECX_KEY *pecxkey = (ECX_KEY *)pkctx->xkey;
+        LUNA_ASSERT(pecxkey != NULL);
+        // NOTE: OSSL_OBJECT_PKEY meaning openssl shall create a PKEY using the reference supplied here
+        object_type = OSSL_OBJECT_PKEY;
+        switch (pecxkey->type) {
+        case ECX_KEY_TYPE_X25519:
+            data_type = "x25519";
+            break;
+        case ECX_KEY_TYPE_X448:
+            data_type = "x448";
+            break;
+        case ECX_KEY_TYPE_ED25519:
+            data_type = "ed25519";
+            break;
+        case ECX_KEY_TYPE_ED448:
+            data_type = "ed25519";
+            break;
+        default:
+            data_type = "ecxXX";
+            return 0;
+        }
+        pkctx->kk.ecx = pecxkey;
+        reference = (void*)&pkctx->kk.ecx;
         reference_sz = sizeof(reference);
     }
 

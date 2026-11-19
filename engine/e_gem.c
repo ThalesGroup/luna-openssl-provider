@@ -7101,7 +7101,7 @@ static void luna_fixup_pkey_load(EVP_PKEY **ppkey, CK_ULONG ckKeyType, ENGINE *e
 
 /* helper function (load private/public key) */
 static EVP_PKEY *luna_load_anykey(ENGINE *eng, const char *key_id, UI_METHOD *ui_method, void *callback_data,
-                                  int hintPublic, void **ppoqskey ) {
+                                  int hintPublic, void **ppoqskey, void **ppecxkey ) {
    EVP_PKEY *rckey = NULL;
    CK_ULONG ulClass = CKO_UNDEFINED;
    CK_ULONG ulType = CKK_UNDEFINED;
@@ -7265,7 +7265,8 @@ gather_method:
 #else /* LUNA_CONFIG_OSSL_PROVIDER */
             default: {
                /* NOTE: luna_prov_load_keytype_ may need to side-effect ctx.rv_last */
-               static EVP_PKEY *luna_prov_load_keytype(luna_context_t *pctx, luna_uri_ctx *urictx, void **ppoqskey);
+               static EVP_PKEY *luna_prov_load_keytype(luna_context_t *pctx, luna_uri_ctx *urictx,
+                  void **ppoqskey, void **ppecxkey);
                //////// FIXME:SW: fix the iterator that calls me! ppoqskey should be a state machine!!
                static luna_uri_ctx *urictx = NULL;
                if (urictx == NULL) {
@@ -7281,9 +7282,10 @@ gather_method:
                   urictx->current->pub.handle = (ulClass == CKO_PUBLIC_KEY ? handle : 0);
                   urictx->current->pub.type = ulType;
                   urictx->count = 1;
-                  rckey = luna_prov_load_keytype(&ctx, urictx, ppoqskey);
+                  rckey = luna_prov_load_keytype(&ctx, urictx, ppoqskey, ppecxkey);
                   const void *poqskey = (ppoqskey == NULL) ? NULL : *ppoqskey;
-                  if (rckey == NULL && poqskey == NULL) {
+                  const void *pecxkey = (ppecxkey == NULL) ? NULL : *ppecxkey;
+                  if (rckey == NULL && poqskey == NULL && ppecxkey == NULL) {
                      luna_uri_ctx_free(urictx);
                      urictx = NULL;
                   } else {
@@ -7297,7 +7299,8 @@ gather_method:
       }
 
       const void *poqskey = (ppoqskey == NULL) ? NULL : *ppoqskey;
-      if (rckey == NULL && poqskey == NULL) {
+      const void *pecxkey = (ppecxkey == NULL) ? NULL : *ppecxkey;
+      if (rckey == NULL && poqskey == NULL && ppecxkey == NULL) {
          LUNACA3err(LUNACA3_F_LOADKEY, LUNACA3_R_ENOSYS);
          ERR_add_error_data(2, "keytype=0x", luna_itoa(itoabuf, ulType));
          LUNA_ERRORLOGL("luna_load_anykey: keytype", ulType);
@@ -7313,12 +7316,12 @@ gather_method:
 
 /* engine entry function (load private key) */
 static EVP_PKEY *luna_load_privkey(ENGINE *eng, const char *key_id, UI_METHOD *ui_method, void *callback_data) {
-   return luna_load_anykey(eng, key_id, ui_method, callback_data, 0, NULL);
+   return luna_load_anykey(eng, key_id, ui_method, callback_data, 0, NULL, NULL);
 }
 
 /* engine entry function (load public key) */
 static EVP_PKEY *luna_load_pubkey(ENGINE *eng, const char *key_id, UI_METHOD *ui_method, void *callback_data) {
-   return luna_load_anykey(eng, key_id, ui_method, callback_data, 1, NULL);
+   return luna_load_anykey(eng, key_id, ui_method, callback_data, 1, NULL, NULL);
 }
 
 /* log error/event messages; show the time, pid, message and optional long value */

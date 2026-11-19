@@ -3171,11 +3171,13 @@ static int luna_prov_query_ecx(luna_prov_key_ctx *keyctx) {
 int luna_prov_ecx_sig_derive_private(struct ecx_gen_ctx *gctx,
         ECX_KEY *ecx, unsigned char *privout) {
 
+    LUNA_PRINTF(("\n"));
     luna_prov_key_ctx *keyctx = gctx->lunakeyctx;
     // need to check if this is for kem or for sig
     const int is_kem = ECX_KEY_TYPE_is_kem(gctx);
     const int is_sig = ECX_KEY_TYPE_is_sig(gctx);
     const int is_ecx = 1;
+    const int is_uri = (keyctx->urictx != NULL);
     if (is_kem) {
         if ( (luna_get_enable_em_gen_key_pair() != 1)
                 || (luna_prov_query_ecx(keyctx) != 1) ) {
@@ -3216,12 +3218,21 @@ int luna_prov_ecx_sig_derive_private(struct ecx_gen_ctx *gctx,
     // FIXME: if kem (or sig) keys are session objects then they cannot be found, so this can be optimized out
     CK_RV rv = (luna_open_context(&keyinfo.sess) == 1) ? CKR_OK : CKR_GENERAL_ERROR;
     if (rv == CKR_OK) {
-        rv = LunaPqcFind(keyctx, &keyinfo);
-        if ( (rv == CKR_OBJECT_COUNT_TOO_SMALL && keyctx->reason == LUNA_PROV_KEY_REASON_ZERO)
-          || (rv == CKR_OBJECT_DECODING_FAILED && keyctx->reason == LUNA_PROV_KEY_REASON_ZERO)
-           ) {
-            _LUNA_OQS_WRITEKEY(keyctx, LUNA_PROV_KEY_REASON_GEN);
-            rv = LunaPqcGen(keyctx, &keyinfo, is_kem, is_ecx, 0); // TODO:SW: uri?
+        LUNA_PRINTF(("is_uri = %d\n", is_uri));
+        if (is_uri) {
+            rv = LunaPqcFind(keyctx, &keyinfo);
+            if (rv == CKR_OK) {
+                _LUNA_OQS_WRITEKEY(keyctx, LUNA_PROV_KEY_REASON_GEN);
+                rv = LunaPqcGen(keyctx, &keyinfo, is_kem, is_ecx, is_uri);
+            }
+        } else {
+            rv = LunaPqcFind(keyctx, &keyinfo);
+            if ( (rv == CKR_OBJECT_COUNT_TOO_SMALL && keyctx->reason == LUNA_PROV_KEY_REASON_ZERO)
+              || (rv == CKR_OBJECT_DECODING_FAILED && keyctx->reason == LUNA_PROV_KEY_REASON_ZERO)
+               ) {
+                _LUNA_OQS_WRITEKEY(keyctx, LUNA_PROV_KEY_REASON_GEN);
+                rv = LunaPqcGen(keyctx, &keyinfo, is_kem, is_ecx, 0);
+            }
         }
 
         // get public key
@@ -3874,26 +3885,27 @@ int LUNA_FIND_CTX_next(LUNA_FIND_CTX *ctx) {
     int rc = 0;
     EVP_PKEY *pkey = NULL;
     void *poqskey = NULL;
+    void *pecxkey = NULL;
     LUNA_PRINTF(("count = %d\n", ctx->count));
     switch (ctx->count) {
     case 0:
         // load PKEY (private key required and public key optional)
-        pkey = luna_load_anykey(NULL, ctx->uris[0], NULL, NULL, 0, &poqskey);
+        pkey = luna_load_anykey(NULL, ctx->uris[0], NULL, NULL, 0, &poqskey, &pecxkey);
         if (poqskey == ((void*)(size_t)17)) { // FIXME:SW:sentinel!
             poqskey = NULL;
             pkey = luna_load_anykey(NULL, (ctx->uris[1] != NULL ? ctx->uris[1] : ctx->uris[0]),
-                NULL, NULL, 0, &poqskey);
+                NULL, NULL, 0, &poqskey, &pecxkey);
         }
         break;
 #if 1 // FIXME:SW: would only call this if user specified public key only
     case 1:
         // load PUBKEY (public key required)
         pkey = luna_load_anykey(NULL, (ctx->uris[1] != NULL ? ctx->uris[1] : ctx->uris[0]),
-            NULL, NULL, 1, &poqskey);
+            NULL, NULL, 1, &poqskey, &pecxkey);
         if (poqskey == ((void*)(size_t)17)) { // FIXME:SW:sentinel!
             poqskey = NULL;
             pkey = luna_load_anykey(NULL, (ctx->uris[1] != NULL ? ctx->uris[1] : ctx->uris[0]),
-                NULL, NULL, 1, &poqskey);
+                NULL, NULL, 1, &poqskey, &pecxkey);
         }
         break;
 #endif
@@ -3901,18 +3913,25 @@ int LUNA_FIND_CTX_next(LUNA_FIND_CTX *ctx) {
         pkey = NULL;
         break;
     }
-    if (pkey != NULL || poqskey != NULL) {
-        LUNA_ASSERT( (pkey != NULL) ^ (poqskey != NULL) );
+    if (pkey != NULL || poqskey != NULL || pecxkey != NULL) {
+        const int cnt = (pkey?1:0) + (poqskey?1:0) + (pecxkey?1:0);
+        LUNA_ASSERT( cnt == 1 );
         if (pkey != NULL) {
             ctx->current = &ctx->xkeys[ctx->count];
             ctx->current->xkey = pkey;
             ctx->current->xtype = 0;
             ctx->count++;
             rc = 1;
-        } else {
+        } else if (poqskey != NULL) {
             ctx->current = &ctx->xkeys[ctx->count];
             ctx->current->xkey = poqskey;
             ctx->current->xtype = 1;
+            ctx->count++;
+            rc = 1;
+        } else if (pecxkey != NULL) {
+            ctx->current = &ctx->xkeys[ctx->count];
+            ctx->current->xkey = pecxkey;
+            ctx->current->xtype = 2;
             ctx->count++;
             rc = 1;
         }
@@ -3984,7 +4003,8 @@ static void luna_prov_load_subtype(luna_context_t *pctx, luna_uri_ctx *urictx,
 static void luna_prov_load_tls_name(luna_context_t *pctx,
     luna_uri_ctx *urictx);
 
-static EVP_PKEY *luna_prov_load_keytype(luna_context_t *pctx, luna_uri_ctx *urictx, void **ppoqskey) {
+static EVP_PKEY *luna_prov_load_keytype(luna_context_t *pctx, luna_uri_ctx *urictx,
+        void **ppoqskey,  void **ppecxkey) {
     EVP_PKEY *rckey = NULL;
     int i = 0;
     luna_uri_item *uitem = NULL;
@@ -4067,17 +4087,25 @@ static EVP_PKEY *luna_prov_load_keytype(luna_context_t *pctx, luna_uri_ctx *uric
     }
 
     if (1) {
-        extern void *luna_oqs_recreate_key(luna_uri_ctx *urictx, void *provctx, int selection);
         const int selection = urictx->hintPublic ? OSSL_KEYMGMT_SELECT_PUBLIC_KEY
             : OSSL_KEYMGMT_SELECT_KEYPAIR; // FIXME:SW: OSSL_KEYMGMT_SELECT_PRIVATE_KEY ?
         void *provctx = NULL; // TODO: null?
-        OQSX_KEY *oqsx_key = luna_oqs_recreate_key(urictx, provctx, selection);
-        if (oqsx_key != NULL) {
+        void *oqs_key = luna_oqs_recreate_key(urictx, provctx, selection);
+        if (oqs_key != NULL) {
             // caller takes ownership of oqsx_key
             // oqsx_key takes ownership of urictx
-            *ppoqskey = oqsx_key;
-            oqsx_key = NULL;
+            *ppoqskey = oqs_key;
+            oqs_key = NULL;
             urictx = NULL;
+        } else {
+            void *ecx_key = luna_ecx_recreate_key(urictx, provctx, selection);
+            if (ecx_key != NULL) {
+                // caller takes ownership of ecx_key
+                // ecx_key takes ownership of urictx
+                *ppecxkey = ecx_key;
+                ecx_key = NULL;
+                urictx = NULL;
+            }
         }
     }
     // TODO: hybrid? composite? ecx?
