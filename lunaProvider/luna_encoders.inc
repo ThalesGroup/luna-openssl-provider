@@ -55,10 +55,10 @@ ENCODER_TEXT("EC", ec, yes),
 #  ifdef LUNA_OQS
 ENCODER_TEXT("ED25519", ed25519, yes),
 ENCODER_TEXT("ED448", ed448, yes),
-#ifdef LUNA_KEYEXCH
+#ifdef LUNA_KEYMGMT_EC_MONT
 ENCODER_TEXT("X25519", x25519, yes),
 ENCODER_TEXT("X448", x448, yes),
-#endif /* LUNA_KEYEXCH */
+#endif /* LUNA_KEYMGMT_EC_MONT */
 #  endif
 # endif
 # ifndef OPENSSL_NO_SM2
@@ -164,7 +164,7 @@ ENCODER_w_structure("EC", ec, yes, pem, SubjectPublicKeyInfo),
 
 #ifndef OPENSSL_NO_ECX
 # ifdef LUNA_OQS
-#ifdef LUNA_KEYEXCH
+#ifdef LUNA_KEYMGMT_EC_MONT
 ENCODER_w_structure("X25519", x25519, yes, der, EncryptedPrivateKeyInfo),
 ENCODER_w_structure("X25519", x25519, yes, pem, EncryptedPrivateKeyInfo),
 ENCODER_w_structure("X25519", x25519, yes, der, PrivateKeyInfo),
@@ -178,7 +178,7 @@ ENCODER_w_structure("X448", x448, yes, der, PrivateKeyInfo),
 ENCODER_w_structure("X448", x448, yes, pem, PrivateKeyInfo),
 ENCODER_w_structure("X448", x448, yes, der, SubjectPublicKeyInfo),
 ENCODER_w_structure("X448", x448, yes, pem, SubjectPublicKeyInfo),
-#endif /* LUNA_KEYEXCH */
+#endif /* LUNA_KEYMGMT_EC_MONT */
 
 ENCODER_w_structure("ED25519", ed25519, yes, der, EncryptedPrivateKeyInfo),
 ENCODER_w_structure("ED25519", ed25519, yes, pem, EncryptedPrivateKeyInfo),

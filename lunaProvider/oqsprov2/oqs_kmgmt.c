@@ -289,6 +289,7 @@ static int oqsx_export(void *keydata, int selection, OSSL_CALLBACK *param_cb,
     int ok = 1;
 
     OQS_KM_PRINTF("OQSKEYMGMT: export called\n");
+    LUNA_PRINTF(("\n"));
 
     /*
      * In this implementation, only public and private keys can be exported,
@@ -296,6 +297,13 @@ static int oqsx_export(void *keydata, int selection, OSSL_CALLBACK *param_cb,
      */
     if (key == NULL || param_cb == NULL) {
         ERR_raise(ERR_LIB_USER, OQSPROV_R_WRONG_PARAMETERS);
+        return 0;
+    }
+
+    // resist export; e.g. for command "openssl pkey -check"
+    if ( ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0)
+            && (LUNA_OQS_QUERY_EXPORT(key->lunakeyctx) != LUNA_OQS_OK) ) {
+        LUNA_PRINTF(("resist export\n"));
         return 0;
     }
 
@@ -1606,6 +1614,8 @@ typedef struct tls_name_gen_init_st {
 } tls_name_gen_init;
 
 #define TLS_NAME_GEN_INIT_ENTRY(tn) { 0, #tn, tn##_gen_init }
+#define ECP_TLS_NAME_GEN_INIT_ENTRY(tn) { 0, #tn, ecp_##tn##_gen_init }
+#define ECX_TLS_NAME_GEN_INIT_ENTRY(tn) { 0, #tn, ecx_##tn##_gen_init }
 
 static tls_name_gen_init gen_init_tab[] = {
     // mldsa44
@@ -1631,6 +1641,20 @@ static tls_name_gen_init gen_init_tab[] = {
     TLS_NAME_GEN_INIT_ENTRY(mldsa87_p384),
     TLS_NAME_GEN_INIT_ENTRY(mldsa87_bp384),
     TLS_NAME_GEN_INIT_ENTRY(mldsa87_ed448),
+    // mlkem512
+    TLS_NAME_GEN_INIT_ENTRY(mlkem512),
+    ECP_TLS_NAME_GEN_INIT_ENTRY(p256_mlkem512),
+    ECX_TLS_NAME_GEN_INIT_ENTRY(x25519_mlkem512),
+    // mlkem768
+    TLS_NAME_GEN_INIT_ENTRY(mlkem768),
+    ECP_TLS_NAME_GEN_INIT_ENTRY(p384_mlkem768),
+    ECX_TLS_NAME_GEN_INIT_ENTRY(x448_mlkem768),
+    ECX_TLS_NAME_GEN_INIT_ENTRY(x25519_mlkem768),
+    ECP_TLS_NAME_GEN_INIT_ENTRY(p256_mlkem768),
+    // mlkem1024
+    TLS_NAME_GEN_INIT_ENTRY(mlkem1024),
+    ECP_TLS_NAME_GEN_INIT_ENTRY(p521_mlkem1024),
+    ECP_TLS_NAME_GEN_INIT_ENTRY(p384_mlkem1024),
 };
 
 void *luna_oqs_recreate_key(luna_uri_ctx *urictx, void *provctx, int selection)

@@ -1488,6 +1488,11 @@ int LUNA_OQS_QUERY_SIG_verify(luna_prov_key_ctx *keyctx) {
     return LUNA_OQS_QUERY_any_public_op(keyctx);
 }
 
+// query the pqc part of the key can be exported in hsm
+int LUNA_OQS_QUERY_EXPORT(luna_prov_key_ctx *keyctx) {
+    return LUNA_OQS_ERROR;
+}
+
 static CK_RV LunaPqcFind(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo);
 static CK_RV LunaPqcGen(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo, int is_kem, int is_ecx, int is_uri);
 static void _LUNA_OQS_WRITEKEY(luna_prov_key_ctx *keyctx, luna_prov_key_reason reason);
@@ -4127,6 +4132,7 @@ int luna_prov_key_ctx_is_public(luna_prov_key_ctx *keyctx) {
 }
 
 static CK_ULONG CKA_PARAMETER_SET_to_subtype_mldsa(CK_ULONG ckParam, char **tls_name);
+static CK_ULONG CKA_PARAMETER_SET_to_subtype_mlkem(CK_ULONG ckParam, char **tls_name);
 static CK_ULONG CKA_ECDSA_PARAMS_to_subtype(void *pValue, CK_ULONG ulValueLen, char **tls_name);
 static CK_ULONG CKA_MODULUS_to_subtype(void *pValue, CK_ULONG ulValueLen, int is_pss, char **tls_name);
 
@@ -4171,6 +4177,17 @@ static void luna_prov_load_subtype(luna_context_t *pctx, luna_uri_ctx *urictx,
         const int is_pss = (urictx->hint_tls_name) ? (strstr(urictx->hint_tls_name, "pss") ? 1 : 0) : 0;
         udetail->subtype = CKA_MODULUS_to_subtype(ckTemplate[0].pValue, ckTemplate[0].ulValueLen, is_pss, &udetail->tls_name);
         return;
+    } else if ( (udetail->type == CKK_MLKEM || udetail->type == LUNA_FW_CKK_ML_KEM) ) {
+        // mlkem has CKA_PARAMETER_SET
+        CK_KEY_PARAMS ckParam = CKP_INVALID;
+        CK_ATTRIBUTE ckTemplate[] = {
+            {CKA_PARAMETER_SET, &ckParam, sizeof(ckParam)}
+        };
+        CK_RV rv = P11->C_GetAttributeValue(hSession, hKey, ckTemplate, DIM(ckTemplate));
+        if (rv != CKR_OK)
+            return;
+        udetail->subtype = CKA_PARAMETER_SET_to_subtype_mlkem(ckParam, &udetail->tls_name);
+        return;
     }
     // TODO: see function gen_init_tab in case you add more algorithms
 }
@@ -4186,6 +4203,21 @@ static CK_ULONG CKA_PARAMETER_SET_to_subtype_mldsa(CK_ULONG ckParam, char **tls_
     case LUNA_FW_CKP_ML_DSA_87:
         *tls_name = OPENSSL_strdup("mldsa87");
         return LUNA_FW_CKP_ML_DSA_87;
+    }
+    return 0;
+}
+
+static CK_ULONG CKA_PARAMETER_SET_to_subtype_mlkem(CK_ULONG ckParam, char **tls_name) {
+    switch (ckParam) {
+    case LUNA_FW_CKP_ML_KEM_512:
+        *tls_name = OPENSSL_strdup("mlkem512");
+        return LUNA_FW_CKP_ML_KEM_512;
+    case LUNA_FW_CKP_ML_KEM_768:
+        *tls_name = OPENSSL_strdup("mlkem768");
+        return LUNA_FW_CKP_ML_KEM_768;
+    case LUNA_FW_CKP_ML_KEM_1024:
+        *tls_name = OPENSSL_strdup("mlkem1024");
+        return LUNA_FW_CKP_ML_KEM_1024;
     }
     return 0;
 }

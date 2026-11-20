@@ -122,6 +122,16 @@ sign2:
 	openssl dgst $(SW_ENGINE) -prverify $(KEY_URI_1) $(PQC_MD_OPTS) -signature message.sig $(SIGOPT_PQC)  message.txt
 	@echo '--------'
 
+KEY_URI_2="pkcs11:Generated ML-KEM Private Key;Generated ML-KEM Public Key"
+
+# encapsulate/decapsulate
+encap1:
+	rm -f message.enc message.dec message.sec
+	openssl pkeyutl $(HW_ENGINE) -inkey $(KEY_URI_2) -encap -secret message.sec -out message.enc
+	openssl pkeyutl $(HW_ENGINE) -inkey $(KEY_URI_2) -decap -in message.enc -out message.dec
+	-diff -q -s message.sec message.dec
+	@echo '--------'
+
 # clean all temp files
 clean:
 	rm -f tmppqc.pkey tmppqc.csr

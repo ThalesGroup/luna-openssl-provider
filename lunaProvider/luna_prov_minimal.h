@@ -85,6 +85,7 @@ int LUNA_OQS_QUERY_KEM_decaps(luna_prov_key_ctx *keyctx);
 int LUNA_OQS_QUERY_SIG_keypair(luna_prov_key_ctx *keyctx);
 int LUNA_OQS_QUERY_SIG_sign(luna_prov_key_ctx *keyctx);
 int LUNA_OQS_QUERY_SIG_verify(luna_prov_key_ctx *keyctx);
+int LUNA_OQS_QUERY_EXPORT(luna_prov_key_ctx *keyctx);
 
 /* callbacks for key encapsulation */
 int LUNA_OQS_KEM_keypair(luna_prov_key_ctx *keyctx,

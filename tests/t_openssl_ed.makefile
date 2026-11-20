@@ -66,7 +66,7 @@ tmped.foo:
 		touch tmped.foo
 
 check0:
-	openssl pkey -$(HW_ENGINE) -in $(KEY_URI_1) -noout -text -check -pubcheck
+	openssl pkey $(HW_ENGINE) -in $(KEY_URI_1) -noout -text -check -pubcheck
 	@echo '--------'
 
 # NOTE: set digest to prove we can override the default of sha256

@@ -1126,6 +1126,7 @@ static int file_load_pkcs11_object(struct file_ctx_st *ctx,
     LUNA_ASSERT(data_type != NULL);
     LUNA_ASSERT(reference != NULL);
     LUNA_ASSERT(reference_sz != 0);
+    LUNA_PRINTF(("data_type = %s\n", data_type));
     LUNA_PRINTF(("reference = 0x%p\n", reference));
     LUNA_PRINTF(("reference_sz = %lu\n", reference_sz));
     OSSL_PARAM params[4];
