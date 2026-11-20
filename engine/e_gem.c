@@ -618,6 +618,7 @@ static int luna_ec_check_keypair1(const EVP_PKEY *pkey);
 #define LUNA_DSA_KEYSIZE_MIN (2048)
 #define LUNA_DSA_QBITS_MIN (224)
 #define LUNA_EC_KEYSIZE_MIN (224)
+#include "luna_prov_minimal.h"
 #else
 /* openssl security level 1 */
 #define LUNA_RSA_KEYSIZE_MIN (1024)
@@ -7096,11 +7097,11 @@ static void luna_attribute_free(CK_ATTRIBUTE_PTR p_attr) {
 #define CKO_UNDEFINED CK_UNDEFINED
 #define CKK_UNDEFINED CK_UNDEFINED
 
-static void luna_fixup_pkey_load(EVP_PKEY **ppkey, CK_ULONG ckKeyType, ENGINE *e, int hintPublic);
+static void luna_fixup_pkey_load(EVP_PKEY **ppkey, CK_ULONG ckKeyType, ENGINE *e, int hintPublic, void **ppoqskey);
 
 /* helper function (load private/public key) */
 static EVP_PKEY *luna_load_anykey(ENGINE *eng, const char *key_id, UI_METHOD *ui_method, void *callback_data,
-                                  int hintPublic) {
+                                  int hintPublic, void **ppoqskey, void **ppecxkey ) {
    EVP_PKEY *rckey = NULL;
    CK_ULONG ulClass = CKO_UNDEFINED;
    CK_ULONG ulType = CKK_UNDEFINED;
@@ -7112,8 +7113,10 @@ static EVP_PKEY *luna_load_anykey(ENGINE *eng, const char *key_id, UI_METHOD *ui
    const char *key_id_ptr = NULL;
    FILE *fpTmp = NULL;
    CK_ATTRIBUTE attribSearch[11];
+   char itoabuf[LUNA_ATOI_BYTES];
 
    memset(attribSearch, 0, sizeof(attribSearch));
+   memset(itoabuf, 0, sizeof(itoabuf));
 
    /* dnssec name mangles as "ENGINE:LABEL" while we expect "LABEL" */
    key_id_ptr = strstr(key_id, ENGINE_LUNACA3_ID":"); /* current engine name */
@@ -7146,7 +7149,7 @@ static EVP_PKEY *luna_load_anykey(ENGINE *eng, const char *key_id, UI_METHOD *ui
       if (rckey == NULL)
          goto gather_method;
 
-      luna_fixup_pkey_load(&rckey, CKK_UNDEFINED, eng, hintPublic);
+      luna_fixup_pkey_load(&rckey, CKK_UNDEFINED, eng, hintPublic, ppoqskey);
       return rckey;
    }
 
@@ -7160,6 +7163,7 @@ gather_method:
       return NULL;
    }
 
+#ifndef LUNA_CONFIG_OSSL_PROVIDER
    /* OPTIMIZATION: append CKA_KEY_TYPE to attribute list iff RSA is the only algorithm enabled */
    if ((have_type == 0) && (luna_get_disable_rsa() == 0) && (luna_get_disable_dsa() != 0) &&
        (luna_get_disable_ecdsa() != 0)) {
@@ -7168,6 +7172,7 @@ gather_method:
       rcCount++;
       have_type = 1;
    }
+#endif /* LUNA_CONFIG_OSSL_PROVIDER */
 
    /* Append CKA_CLASS to attribute list */
    if (have_class == 0) {
@@ -7253,30 +7258,70 @@ gather_method:
                        (ulClass == CKO_PRIVATE_KEY ? handle : LUNA_INVALID_HANDLE),
                        hintPublic );
             } break;
+#ifndef LUNA_CONFIG_OSSL_PROVIDER
             default: {
-               LUNACA3err(LUNACA3_F_LOADKEY, LUNACA3_R_ENOSYS);
                rckey = NULL;
-               LUNA_ERRORLOGL("luna_load_anykey: keytype", ulType);
             } break;
+#else /* LUNA_CONFIG_OSSL_PROVIDER */
+            default: {
+               /* NOTE: luna_prov_load_keytype_ may need to side-effect ctx.rv_last */
+               static EVP_PKEY *luna_prov_load_keytype(luna_context_t *pctx, luna_uri_ctx *urictx,
+                  void **ppoqskey, void **ppecxkey);
+               //////// FIXME:SW: fix the iterator that calls me! ppoqskey should be a state machine!!
+               static luna_uri_ctx *urictx = NULL;
+               if (urictx == NULL) {
+                  urictx = luna_uri_ctx_new();
+                  urictx->hintPublic = hintPublic;
+                  urictx->current = &(urictx->items[0]);
+                  urictx->current->pri.handle = (ulClass == CKO_PRIVATE_KEY ? handle : 0);
+                  urictx->current->pub.handle = (ulClass == CKO_PUBLIC_KEY ? handle : 0);
+                  urictx->current->pri.type = ulType;
+                  *ppoqskey = ((void*)(size_t)17); // FIXME:SW:sentinel!
+               } else {
+                  urictx->current = &(urictx->items[0]);
+                  urictx->current->pub.handle = (ulClass == CKO_PUBLIC_KEY ? handle : 0);
+                  urictx->current->pub.type = ulType;
+                  urictx->count = 1;
+                  rckey = luna_prov_load_keytype(&ctx, urictx, ppoqskey, ppecxkey);
+                  const void *poqskey = (ppoqskey == NULL) ? NULL : *ppoqskey;
+                  const void *pecxkey = (ppecxkey == NULL) ? NULL : *ppecxkey;
+                  if (rckey == NULL && poqskey == NULL && ppecxkey == NULL) {
+                     luna_uri_ctx_free(urictx);
+                     urictx = NULL;
+                  } else {
+                     urictx = NULL;
+                  }
+               }
+               /////////
+            } break;
+#endif /* LUNA_CONFIG_OSSL_PROVIDER */
          }
+      }
+
+      const void *poqskey = (ppoqskey == NULL) ? NULL : *ppoqskey;
+      const void *pecxkey = (ppecxkey == NULL) ? NULL : *ppecxkey;
+      if (rckey == NULL && poqskey == NULL && ppecxkey == NULL) {
+         LUNACA3err(LUNACA3_F_LOADKEY, LUNACA3_R_ENOSYS);
+         ERR_add_error_data(2, "keytype=0x", luna_itoa(itoabuf, ulType));
+         LUNA_ERRORLOGL("luna_load_anykey: keytype", ulType);
       }
 
       luna_close_context_w_err(&ctx, (rckey == NULL), ctx.rv_last);
    }
 
    luna_attribute_free_all(attribSearch, LUNA_DIM(attribSearch));
-   luna_fixup_pkey_load(&rckey, ulType, eng, hintPublic);
+   luna_fixup_pkey_load(&rckey, ulType, eng, hintPublic, ppoqskey);
    return rckey;
 }
 
 /* engine entry function (load private key) */
 static EVP_PKEY *luna_load_privkey(ENGINE *eng, const char *key_id, UI_METHOD *ui_method, void *callback_data) {
-   return luna_load_anykey(eng, key_id, ui_method, callback_data, 0);
+   return luna_load_anykey(eng, key_id, ui_method, callback_data, 0, NULL, NULL);
 }
 
 /* engine entry function (load public key) */
 static EVP_PKEY *luna_load_pubkey(ENGINE *eng, const char *key_id, UI_METHOD *ui_method, void *callback_data) {
-   return luna_load_anykey(eng, key_id, ui_method, callback_data, 1);
+   return luna_load_anykey(eng, key_id, ui_method, callback_data, 1, NULL, NULL);
 }
 
 /* log error/event messages; show the time, pid, message and optional long value */
@@ -10182,9 +10227,13 @@ static int luna_RAND_bytes(unsigned char *buf, int num) {
 #endif /* OPENSSL_NO_DYNAMIC_ENGINE */
 
 /* fixup pkey when loading the key using keyform=ENGINE */
-static void luna_fixup_pkey_load(EVP_PKEY **ppkey, CK_ULONG ckKeyType, ENGINE *e, int hintPublic) {
+static void luna_fixup_pkey_load(EVP_PKEY **ppkey, CK_ULONG ckKeyType, ENGINE *e, int hintPublic, void **ppoqskey) {
    EVP_PKEY *pkey = (ppkey == NULL) ? NULL : *ppkey;
+   void *poqskey = (ppoqskey == NULL) ? NULL : *ppoqskey;
 
+   // oqskey requires no fixup
+   if (poqskey != NULL)
+      return;
 #ifdef LUNA_CONFIG_OSSL_PROVIDER
    if (pkey == NULL)
       return;

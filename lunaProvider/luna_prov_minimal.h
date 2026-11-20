@@ -85,6 +85,7 @@ int LUNA_OQS_QUERY_KEM_decaps(luna_prov_key_ctx *keyctx);
 int LUNA_OQS_QUERY_SIG_keypair(luna_prov_key_ctx *keyctx);
 int LUNA_OQS_QUERY_SIG_sign(luna_prov_key_ctx *keyctx);
 int LUNA_OQS_QUERY_SIG_verify(luna_prov_key_ctx *keyctx);
+int LUNA_OQS_QUERY_EXPORT(luna_prov_key_ctx *keyctx);
 
 /* callbacks for key encapsulation */
 int LUNA_OQS_KEM_keypair(luna_prov_key_ctx *keyctx,
@@ -172,6 +173,58 @@ const char *luna_tls_name(const char *txt);
 
 /* runtime debugging */
 void luna_prov_debug_ex(const char *prefix, const char *prefix2, const unsigned char* p, size_t n);
+
+/* uri context */
+typedef struct luna_uri_item_detail_st {
+    unsigned long handle;
+    unsigned long type;
+    unsigned long subtype;
+    char *tls_name;
+} luna_uri_item_detail;
+
+typedef struct luna_uri_item_st {
+    int magic;
+    luna_uri_item_detail pri;
+    luna_uri_item_detail pub;
+    char *tls_name;
+} luna_uri_item;
+
+#define MAX_URI_ITEM 2
+
+typedef struct luna_uri_ctx_st {
+    int magic;
+    // hints coming from the user (optional)
+    int hintPublic;
+    char *hint_tls_name;
+    // up to two items for hybrid/composite
+    int count;
+    luna_uri_item items[MAX_URI_ITEM];
+    luna_uri_item *current;
+    // hybrid name if any
+    char *tls_name;
+} luna_uri_ctx;
+
+void luna_prov_key_ctx_set_urictx(luna_prov_key_ctx *keyctx, luna_uri_ctx *urictx);
+luna_uri_ctx *luna_prov_key_ctx_get_urictx(luna_prov_key_ctx *keyctx);
+int luna_prov_key_ctx_is_public(luna_prov_key_ctx *keyctx);
+
+void *luna_oqs_recreate_key(luna_uri_ctx *urictx, void *provctx, int selection);
+void *luna_ecx_recreate_key(luna_uri_ctx *urictx, void *provctx, int selection/*, const OSSL_PARAM params[]*/);
+
+luna_uri_ctx *luna_uri_ctx_new(void);
+void luna_uri_ctx_free(luna_uri_ctx *urictx);
+
+/* misc */
+#define LUNA_FW_CKK_ML_DSA 0x0000004aUL
+#define LUNA_FW_CKK_ML_KEM 0x00000049UL
+
+#define LUNA_FW_CKP_ML_DSA_44 1
+#define LUNA_FW_CKP_ML_DSA_65 2
+#define LUNA_FW_CKP_ML_DSA_87 3
+
+#define LUNA_FW_CKP_ML_KEM_512 1
+#define LUNA_FW_CKP_ML_KEM_768 2
+#define LUNA_FW_CKP_ML_KEM_1024 3
 
 #endif // _LUNA_PROV_MINIMAL_H
 

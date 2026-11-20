@@ -189,6 +189,7 @@ typedef struct ecx_gen_ctx {
     size_t dhkem_ikmlen;
     /* added for luna hsm */
     luna_prov_key_ctx *lunakeyctx;
+    luna_uri_ctx *urictx;
 } PROV_ECX_GEN_CTX;
 
 int luna_prov_ecx_dhkem_derive_private(struct ecx_gen_ctx *gctx,
@@ -325,20 +326,45 @@ int LUNAPROV_EVP_MD_CTX_set_params(LUNAPROV_EVP_MD_CTX *ctx, const OSSL_PARAM pa
 struct luna_context_st;
 
 typedef struct LUNA_PKEY_CTX_st {
-    EVP_PKEY *pkey;
+    void *xkey; // EVP_PKEY or OQSX_KEY
+    int xtype; // EVP_PKEY(0) or OQSX_KEY(1) or ECX_KEY(2)
     union {
         RSA *rsa;
         DSA *dsa;
         EC_KEY *ec;
+        void *pqc;
+        void *ecx;
     } kk;
 } LUNA_PKEY_CTX;
 
+// MAX_URI is maximum number of substrings within a URI string.
+// Each substring represents a key (public or private).
+// This needs to support hybrid keys; i.e., (private and public) X 2 = 4 keys:
+//   e.g., "pkcs11:label1;label2;label3;label4" specifies 4 keys, where all labels are unique.
+// If labels are not unique (or to be more specific) then:
+//   e.g., "pkcs11:object=foo;type=private;tlsname=rsa3072;object=foo;type=public;tlsname=rsa3072;object=foo;type=private;tlsname=mldsa44;object=foo;type=public;tlsname=mldsa44"
+//     thus "rsa3072_mldsa44" would be the TLS name of the overall hybrid algorithm.
+//
+// Notes:
+// - substrings are delimited by semi-colon ";".
+// - order of substring is important; i.e., basic convention is private key first then public key.
+// - URI convention partly based on legacy gem engine and partly based on rfc7512.
+//
+// More examples:
+// To reference a hybrid public key only use the explicit form:
+//   e.g., "pkcs11:object=foo;type=public;tlsname=rsa3072;object=foo;type=public;tlsname=mldsa44"
+// To reference a hybrid private key only use the explicit form:
+//   e.g., "pkcs11:object=foo;type=private;tlsname=rsa3072;object=foo;type=private;tlsname=mldsa44"
+// To reference a pure PQC keypair where the private/public labels are unique try the basic form:
+//   e.g., "pkcs11:private1;public1"
+#define MAX_URI 4
+
 typedef struct LUNA_FIND_CTX_st {
     int magic;
-    char *uri;
+    char *uris[MAX_URI];
     struct luna_context_st *psess;
     int count;
-    LUNA_PKEY_CTX pkeys[3];
+    LUNA_PKEY_CTX xkeys[MAX_URI];
     LUNA_PKEY_CTX *current;
 } LUNA_FIND_CTX;
 

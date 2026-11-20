@@ -380,6 +380,7 @@ static void LunaPqcCleanTemplate(luna_prov_key_ctx *keyctx, CK_ATTRIBUTE *pPubli
 }
 
 static CK_RV LunaPqcFind(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo) {
+    const int is_uri = (keyctx->urictx != NULL);
     CK_OBJECT_HANDLE publicObjectHandle = 0, privateObjectHandle = 0;
     CK_BBOOL yes = CK_TRUE;
 
@@ -395,14 +396,19 @@ static CK_RV LunaPqcFind(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo)
         {CKA_TOKEN, &yes, sizeof(yes)}
     };
 
-    // NOTE: decode keyblob BEFORE lookup algorithm, to set flag is_hardware properly
-    CK_RV rvfill = LunaPqcDecodeTemplate(keyctx, pkeyinfo, publicTemplate, privateTemplate);
-    keyctx->is_hardware = 1; // assume hardware
-    if (rvfill != CKR_OK) {
-        if (rvfill == CKR_OBJECT_DECODING_FAILED) {
-            keyctx->is_hardware = 0; // proven not hardware
+    // presume to be hardware key until proven otherwise
+    keyctx->is_hardware = 1;
+
+    CK_RV rvfill = CKR_GENERAL_ERROR;
+    if ( ! is_uri ) {
+        // NOTE: decode keyblob BEFORE lookup algorithm, to set flag is_hardware properly
+        rvfill = LunaPqcDecodeTemplate(keyctx, pkeyinfo, publicTemplate, privateTemplate);
+        if (rvfill != CKR_OK) {
+            if (rvfill == CKR_OBJECT_DECODING_FAILED) {
+                keyctx->is_hardware = 0; // proven not hardware
+            }
+            return rvfill;
         }
-        return rvfill;
     }
 
     // NOTE: lookup algorithm AFTER decode keyblob, because LunaLookupAlgName can fail
@@ -410,16 +416,38 @@ static CK_RV LunaPqcFind(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo)
     if (rvlookup != CKR_OK)
         return rvlookup;
 
-    CK_RV rv = LunaFind(keyctx, pkeyinfo, privateTemplate, 1, &privateObjectHandle);
-    if (rv == CKR_OK) {
-        rv = LunaFind(keyctx, pkeyinfo, publicTemplate, 1, &publicObjectHandle);
+    CK_RV rv = CKR_GENERAL_ERROR;
+    if ( ! is_uri ) {
+        rv = LunaFind(keyctx, pkeyinfo, privateTemplate, 1, &privateObjectHandle);
+        if (rv == CKR_OK) {
+            rv = LunaFind(keyctx, pkeyinfo, publicTemplate, 1, &publicObjectHandle);
+        }
+    } else {
+        publicObjectHandle = keyctx->urictx->current ? keyctx->urictx->current->pub.handle : 0;
+        privateObjectHandle = keyctx->urictx->current ? keyctx->urictx->current->pri.handle : 0;
+#if 1
+        // FIXME:SW: relax the rule to have both private and public at the same time
+        rv = (publicObjectHandle || privateObjectHandle) ? CKR_OK : CKR_OBJECT_HANDLE_INVALID;
+#else
+        if ( privateObjectHandle != 0 && privateObjectHandle != publicObjectHandle ) {
+            if ( publicObjectHandle != 0 ) {
+                // ideal case: we have both private and public key handles
+                rv = CKR_OK;
+            } else {
+                // we have private key handle but no public; the encoding may care about this
+                rv = CKR_OBJECT_HANDLE_INVALID;
+            }
+        } else {
+            rv = CKR_OBJECT_HANDLE_INVALID;
+        }
+#endif
     }
 
     if (rv != CKR_OK) {
-        LUNA_PRINTF(("Failed to find PQC keypair: 0x%lx\n", rv));
+        LUNA_PRINTF(("LunaPqcFind failed: rv = 0x%lx\n", rv));
         keyctx->count_c_init = 0;
     } else {
-        LUNA_PRINTF(("PQC keypair find was successful: pub=%lu, priv=%lu\n", publicObjectHandle, privateObjectHandle));
+        LUNA_PRINTF(("LunaPqcFind was successful: pub=%lu, priv=%lu\n", publicObjectHandle, privateObjectHandle));
         keyctx->hPublic = publicObjectHandle;
         keyctx->hPrivate = privateObjectHandle;
         keyctx->count_c_init = P11_GET_COUNT();
@@ -431,23 +459,27 @@ static CK_RV LunaPqcFind(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo)
     return rv;
 }
 
+#define curve_ed25519_len 11
 static unsigned char curve_ed25519[] = {
     0x06, 0x09, 0x2B, 0x06, 0x01, 0x04, 0x01, 0xDA, 0x47, 0x0F, 0x01 /* [613] ed25519 */
 };
 
+#define curve_ed448_len 5
 static unsigned char curve_ed448[] = {
     0x06, 0x03, 0x2B, 0x65, 0x71 /* [639] ed448*/
 };
 
+#define curve_x25519_len 12
 static unsigned char curve_x25519[] = {
     0x06, 0x0a, 0x2b, 0x06, 0x01, 0x04, 0x01, 0x97, 0x55, 0x01, 0x05, 0x01 /* [601] x25519 */
 };
 
+#define curve_x448_len 5
 static unsigned char curve_x448[] = {
     0x06, 0x03, 0x2B, 0x65, 0x6F /* [634] x448 */
 };
 
-static CK_RV LunaPqcGen(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo, int is_kem, int is_ecx) {
+static CK_RV LunaPqcGen(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo, int is_kem, int is_ecx, int is_uri) {
     CK_OBJECT_HANDLE publicObjectHandle = 0, privateObjectHandle = 0;
     CK_MECHANISM mechGen = {0, 0, 0};
     CK_KEY_PARAMS params = CKP_INVALID;
@@ -462,7 +494,7 @@ static CK_RV LunaPqcGen(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo, 
     CK_ATTRIBUTE publicTemplate[] = {
         {CKA_LABEL, 0, 0}, // first
         {CKA_ID, 0, 0}, // second
-        {CKA_TOKEN, &ckaTokenObject, sizeof(ckaTokenObject)},
+        {CKA_TOKEN, &ckaTokenObject, sizeof(ckaTokenObject)}, // third
         {CKA_VERIFY, &ckaVerify, sizeof(ckaVerify)},
         {CKA_PRIVATE, &yes, sizeof(yes)},
         {CKA_MODIFIABLE, &yes, sizeof(yes)},
@@ -474,7 +506,7 @@ static CK_RV LunaPqcGen(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo, 
     CK_ATTRIBUTE privateTemplate[] = {
         {CKA_LABEL, 0, 0}, // first
         {CKA_ID, 0, 0}, // second
-        {CKA_TOKEN, &ckaTokenObject, sizeof(ckaTokenObject)},
+        {CKA_TOKEN, &ckaTokenObject, sizeof(ckaTokenObject)}, // third
         {CKA_SIGN, &ckaSign, sizeof(ckaSign)},
         {CKA_PRIVATE, &yes, sizeof(yes)},
         {CKA_MODIFIABLE, &yes, sizeof(yes)},
@@ -556,15 +588,34 @@ static CK_RV LunaPqcGen(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo, 
     }
 
     CK_SESSION_HANDLE session = pkeyinfo->sess.hSession;
-    CK_RV rv = P11->C_GenerateKeyPair(session, &mechGen,
-        publicTemplate, publicTemplateCount,
-        privateTemplate, privateTemplateCount,
-        &publicObjectHandle, &privateObjectHandle);
+    CK_RV rv;
+    if ( ! is_uri ) {
+        rv = P11->C_GenerateKeyPair(session, &mechGen,
+            publicTemplate, publicTemplateCount,
+            privateTemplate, privateTemplateCount,
+            &publicObjectHandle, &privateObjectHandle);
+    } else {
+        publicObjectHandle = keyctx->urictx->current ? keyctx->urictx->current->pub.handle : 0;
+        privateObjectHandle = keyctx->urictx->current ? keyctx->urictx->current->pri.handle : 0;
+        // read the first three attributes ( CKA_LABEL, CKA_ID, CKA_TOKEN )
+        rv = CKR_GENERAL_ERROR;
+        if (privateObjectHandle || publicObjectHandle) {
+            rv = CKR_OK;
+            if (privateObjectHandle) {
+                rv = P11->C_GetAttributeValue(session, privateObjectHandle, privateTemplate, 3);
+            }
+            if (publicObjectHandle && rv == CKR_OK) {
+                rv = P11->C_GetAttributeValue(session, publicObjectHandle, publicTemplate, 3);
+            }
+        }
+    }
+
     if (rv != CKR_OK) {
-        LUNA_PRINTF(("Failed to generate keypair: 0x%lx\n", rv));
+        LUNA_PRINTF(("LunaPqcGen failed: 0x%lx\n", rv));
         keyctx->count_c_init = 0;
     } else {
-        LUNA_PRINTF(("Keypair generation was successful: pub=%lu, priv=%lu\n", publicObjectHandle, privateObjectHandle));
+        LUNA_PRINTF(("LunaPqcGen was successful: pub=%lu, priv=%lu\n",
+            publicObjectHandle, privateObjectHandle));
         keyctx->is_hardware = 1; // proven hardware
         keyctx->hPublic = publicObjectHandle;
         keyctx->hPrivate = privateObjectHandle;

@@ -1045,6 +1045,7 @@ static const OSSL_ALGORITHM luna_asym_cipher[] = {
 };
 
 static const OSSL_ALGORITHM luna_asym_kem[] = {
+#define LUNA_ASYM_KEM 1
 #ifdef LUNA_ASYM_KEM
     // NOTE: { PROV_NAMES_RSA, LUNA_PROV_EQUALS_SZ, luna_rsa_asym_kem_functions },
 #ifdef LUNA_OQS
@@ -1104,10 +1105,10 @@ static const OSSL_ALGORITHM luna_keymgmt[] = {
       PROV_DESCS_EC },
 # ifndef OPENSSL_NO_ECX
 #  ifdef LUNA_OQS
-#   ifdef LUNA_KEYEXCH
+#   ifdef LUNA_KEYMGMT_EC_MONT
     { PROV_NAMES_X25519, LUNA_PROV_EQUALS_SZ, luna_x25519_keymgmt_functions, PROV_DESCS_X25519 },
     { PROV_NAMES_X448, LUNA_PROV_EQUALS_SZ, luna_x448_keymgmt_functions, PROV_DESCS_X448 },
-#   endif /* LUNA_KEYEXCH */
+#   endif /* LUNA_KEYMGMT_EC_MONT */
     { PROV_NAMES_ED25519, LUNA_PROV_EQUALS_SZ, luna_ed25519_keymgmt_functions,
       PROV_DESCS_ED25519 },
     { PROV_NAMES_ED448, LUNA_PROV_EQUALS_SZ, luna_ed448_keymgmt_functions,
@@ -1203,7 +1204,8 @@ static const OSSL_ALGORITHM luna_keymgmt[] = {
 #endif
 #endif /* LUNA_OQS_sphincs */
 
-#ifdef LUNA_KEYEXCH
+#define LUNA_KEYMGMT_KEM 1
+#ifdef LUNA_KEYMGMT_KEM
 #ifdef LUNA_OQS_kyber
 #ifdef OQS_ENABLE_KEM_kyber_512
     KEMKMALG(kyber512, 128)
@@ -1245,7 +1247,7 @@ static const OSSL_ALGORITHM luna_keymgmt[] = {
     KEMKMHYBALG(p521_mlkem1024, 256, ecp)
     KEMKMHYBALG(p384_mlkem1024, 192, ecp)
 #endif
-#endif /* LUNA_KEYEXCH */
+#endif /* LUNA_KEYMGMT_KEM */
 #endif  /* LUNA_OQS */
     { NULL, NULL, NULL }
 };

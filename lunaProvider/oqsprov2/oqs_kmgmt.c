@@ -81,6 +81,8 @@ struct oqsx_gen_ctx {
     int selection;
     int bit_security;
     int alg_idx;
+    // luna extension
+    luna_uri_ctx *urictx;
 };
 
 static int oqsx_has(const void *keydata, int selection)
@@ -99,8 +101,14 @@ static int oqsx_has(const void *keydata, int selection)
         if ((selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY) != 0)
             ok = ok && key->pubkey != NULL;
 
-        if ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0)
+        if ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0) {
             ok = ok && key->privkey != NULL;
+            if (ok) {
+                if (key->lunakeyctx && luna_prov_key_ctx_is_public(key->lunakeyctx)) {
+                    ok = 0;
+                }
+            }
+        }
     }
     if (!ok)
         OQS_KM_PRINTF2("OQSKM: has returning FALSE on selection %2x\n",
@@ -281,6 +289,7 @@ static int oqsx_export(void *keydata, int selection, OSSL_CALLBACK *param_cb,
     int ok = 1;
 
     OQS_KM_PRINTF("OQSKEYMGMT: export called\n");
+    LUNA_PRINTF(("\n"));
 
     /*
      * In this implementation, only public and private keys can be exported,
@@ -288,6 +297,13 @@ static int oqsx_export(void *keydata, int selection, OSSL_CALLBACK *param_cb,
      */
     if (key == NULL || param_cb == NULL) {
         ERR_raise(ERR_LIB_USER, OQSPROV_R_WRONG_PARAMETERS);
+        return 0;
+    }
+
+    // resist export; e.g. for command "openssl pkey -check"
+    if ( ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0)
+            && (LUNA_OQS_QUERY_EXPORT(key->lunakeyctx) != LUNA_OQS_OK) ) {
+        LUNA_PRINTF(("resist export\n"));
         return 0;
     }
 
@@ -616,6 +632,11 @@ static void *oqsx_gen_init(void *provctx, int selection, char *oqs_name,
     return gctx;
 }
 
+static void oqsx_gen_ctx_set_urictx(struct oqsx_gen_ctx *gctx, luna_uri_ctx *urictx)
+{
+    gctx->urictx = urictx;
+}
+
 static void *oqsx_genkey(struct oqsx_gen_ctx *gctx)
 {
     OQSX_KEY *key;
@@ -633,6 +654,8 @@ static void *oqsx_genkey(struct oqsx_gen_ctx *gctx)
         return NULL;
     }
 
+    LUNA_PRINTF(("luna_prov_key_ctx_set_urictx\n"));
+    luna_prov_key_ctx_set_urictx(key->lunakeyctx, gctx->urictx);
     if (oqsx_key_gen(key)) {
         ERR_raise(ERR_LIB_USER, OQSPROV_UNEXPECTED_NULL);
         return NULL;
@@ -1577,3 +1600,89 @@ MAKE_KEM_KEYMGMT_FUNCTIONS(hqc256, OQS_KEM_alg_hqc_256, 256)
 
 MAKE_KEM_ECP_KEYMGMT_FUNCTIONS(p521_hqc256, OQS_KEM_alg_hqc_256, 256)
 ///// OQS_TEMPLATE_FRAGMENT_KEYMGMT_FUNCTIONS_END
+
+//
+// load pqc hybrid key from URI
+//
+
+#define DIM(a) (sizeof(a) / sizeof((a)[0]))
+
+typedef struct tls_name_gen_init_st {
+    int magic;
+    const char *tls_name;
+    void* (*gen_init)(void *provctx, int selection);
+} tls_name_gen_init;
+
+#define TLS_NAME_GEN_INIT_ENTRY(tn) { 0, #tn, tn##_gen_init }
+#define ECP_TLS_NAME_GEN_INIT_ENTRY(tn) { 0, #tn, ecp_##tn##_gen_init }
+#define ECX_TLS_NAME_GEN_INIT_ENTRY(tn) { 0, #tn, ecx_##tn##_gen_init }
+
+static tls_name_gen_init gen_init_tab[] = {
+    // mldsa44
+    TLS_NAME_GEN_INIT_ENTRY(mldsa44),
+    TLS_NAME_GEN_INIT_ENTRY(p256_mldsa44),
+    TLS_NAME_GEN_INIT_ENTRY(rsa3072_mldsa44),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa44_pss2048),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa44_rsa2048),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa44_ed25519),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa44_p256),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa44_bp256),
+    // mldsa65
+    TLS_NAME_GEN_INIT_ENTRY(mldsa65),
+    TLS_NAME_GEN_INIT_ENTRY(p384_mldsa65),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa65_pss3072),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa65_rsa3072),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa65_p256),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa65_bp256),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa65_ed25519),
+    // mldsa87
+    TLS_NAME_GEN_INIT_ENTRY(mldsa87),
+    TLS_NAME_GEN_INIT_ENTRY(p521_mldsa87),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa87_p384),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa87_bp384),
+    TLS_NAME_GEN_INIT_ENTRY(mldsa87_ed448),
+    // mlkem512
+    TLS_NAME_GEN_INIT_ENTRY(mlkem512),
+    ECP_TLS_NAME_GEN_INIT_ENTRY(p256_mlkem512),
+    ECX_TLS_NAME_GEN_INIT_ENTRY(x25519_mlkem512),
+    // mlkem768
+    TLS_NAME_GEN_INIT_ENTRY(mlkem768),
+    ECP_TLS_NAME_GEN_INIT_ENTRY(p384_mlkem768),
+    ECX_TLS_NAME_GEN_INIT_ENTRY(x448_mlkem768),
+    ECX_TLS_NAME_GEN_INIT_ENTRY(x25519_mlkem768),
+    ECP_TLS_NAME_GEN_INIT_ENTRY(p256_mlkem768),
+    // mlkem1024
+    TLS_NAME_GEN_INIT_ENTRY(mlkem1024),
+    ECP_TLS_NAME_GEN_INIT_ENTRY(p521_mlkem1024),
+    ECP_TLS_NAME_GEN_INIT_ENTRY(p384_mlkem1024),
+};
+
+void *luna_oqs_recreate_key(luna_uri_ctx *urictx, void *provctx, int selection)
+{
+    void *genctx = NULL;
+    int i;
+    LUNA_PRINTF(("tls_name = %s\n", urictx->tls_name));
+    for (i = 0; i < DIM(gen_init_tab); i++) {
+        if (!strcmp(urictx->tls_name, gen_init_tab[i].tls_name)) {
+            genctx = gen_init_tab[i].gen_init(provctx, selection);
+            break;
+        }
+    }
+
+    LUNA_PRINTF(("genctx = %p\n", genctx));
+    if (genctx == NULL) {
+        return NULL;
+    }
+
+    oqsx_gen_ctx_set_urictx(genctx, urictx);
+    void *oqsx_key = oqsx_genkey(genctx);
+    LUNA_PRINTF(("oqsx_key = %p\n", oqsx_key));
+    // oqsx_genkey takes ownership of urictx
+    urictx = NULL;
+    oqsx_gen_ctx_set_urictx(genctx, NULL);
+    // clean
+    (void) oqsx_gen_cleanup(genctx);
+    genctx = NULL;
+    return oqsx_key;
+}
+

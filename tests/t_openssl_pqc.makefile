@@ -30,6 +30,10 @@ PQCTYPE=mldsa87
 
 # sender/recipient cert file and key file
 KEYF1=tmppqc.pkey
+#KEY_URI_1=$(KEYF1)
+#KEY_URI_1=pkcs11:$(KEYF1)
+KEY_URI_1=pkcs11:sk31d8955e3d066aa203141eed4413;pk31d8955e3d066aa203141eed4413
+
 CERTF1=tmppqc.crt
 
 # CA cert file
@@ -64,7 +68,7 @@ tmppqc.pkey.0: tmppqc.foo
 	@echo '--------'
 
 check0:
-	openssl pkey -check -in tmppqc.pkey $(HW_ENGINE)
+	openssl pkey -check -in $(KEY_URI_1) $(HW_ENGINE)
 	@echo '--------'
 
 tmppqc.foo:
@@ -88,8 +92,8 @@ endif
 # NOTE: it is discouraged to add options after "-pkeyopt OPTIONS" or "-sigopt OPTIONS"
 req0:
 	rm -f tmppqc.csr tmppqc.crt
-	openssl req $(HW_ENGINE) $(HW_KEYFORM) $(PKCS_MD_OPTS) -verbose -new -nodes -key $(KEYF1) -out tmppqc.csr -subj "/CN=t_openssl_pqc" -verify $(SIGOPT_REQ)
-	openssl x509 $(HW_ENGINE) $(HW_KEYFORM) $(PKCS_MD_OPTS) -trustout -outform PEM -req -days 7305 -in tmppqc.csr -signkey $(KEYF1) -out tmppqc.crt $(SIGOPT_X509)
+	openssl req $(HW_ENGINE) $(HW_KEYFORM) $(PKCS_MD_OPTS) -verbose -new -nodes -key $(KEY_URI_1) -out tmppqc.csr -subj "/CN=t_openssl_pqc" -verify $(SIGOPT_REQ)
+	openssl x509 $(HW_ENGINE) $(HW_KEYFORM) $(PKCS_MD_OPTS) -trustout -outform PEM -req -days 7305 -in tmppqc.csr -signkey $(KEY_URI_1) -out tmppqc.crt $(SIGOPT_X509)
 	@echo '--------'
 
 PQC_MD=$(BASE_MD)
@@ -107,15 +111,25 @@ endif
 # digest in software, sign in hardware, verify in software
 sign1:
 	openssl dgst -$(PQC_MD) -out message.dig -binary message.txt
-	openssl pkeyutl $(HW_ENGINE) $(HW_KEYFORM) -sign -in message.dig -inkey tmppqc.pkey -out message.sig $(PKEYOPT_PQC)
-	openssl pkeyutl $(SW_ENGINE) -verify -in message.dig -inkey tmppqc.pkey -sigfile message.sig $(PKEYOPT_PQC)
+	openssl pkeyutl $(HW_ENGINE) $(HW_KEYFORM) -sign -in message.dig -inkey $(KEY_URI_1) -out message.sig $(PKEYOPT_PQC)
+	openssl pkeyutl $(SW_ENGINE) -verify -in message.dig -inkey $(KEY_URI_1) -sigfile message.sig $(PKEYOPT_PQC)
 	@echo '--------'
 
 # using dgst
 # sign in hardware, verify in software
 sign2:
-	openssl dgst $(HW_ENGINE) $(HW_KEYFORM) -sign tmppqc.pkey $(PQC_MD_OPTS) -out message.sig $(SIGOPT_PQC)  message.txt
-	openssl dgst $(SW_ENGINE) -prverify tmppqc.pkey $(PQC_MD_OPTS) -signature message.sig $(SIGOPT_PQC)  message.txt
+	openssl dgst $(HW_ENGINE) $(HW_KEYFORM) -sign $(KEY_URI_1) $(PQC_MD_OPTS) -out message.sig $(SIGOPT_PQC)  message.txt
+	openssl dgst $(SW_ENGINE) -prverify $(KEY_URI_1) $(PQC_MD_OPTS) -signature message.sig $(SIGOPT_PQC)  message.txt
+	@echo '--------'
+
+KEY_URI_2="pkcs11:Generated ML-KEM Private Key;Generated ML-KEM Public Key"
+
+# encapsulate/decapsulate
+encap1:
+	rm -f message.enc message.dec message.sec
+	openssl pkeyutl $(HW_ENGINE) -inkey $(KEY_URI_2) -encap -secret message.sec -out message.enc
+	openssl pkeyutl $(HW_ENGINE) -inkey $(KEY_URI_2) -decap -in message.enc -out message.dec
+	-diff -q -s message.sec message.dec
 	@echo '--------'
 
 # clean all temp files

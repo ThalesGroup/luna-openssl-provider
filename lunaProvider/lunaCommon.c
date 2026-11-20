@@ -614,6 +614,8 @@ typedef struct luna_prov_key_ctx_st {
     volatile int readers;
     volatile int writers;
     volatile int want_writers;
+    // uri
+    luna_uri_ctx *urictx;
 } luna_prov_key_ctx;
 
 typedef struct luna_prov_keyinfo_st {
@@ -1327,6 +1329,7 @@ static int LUNA_OQS_QUERY_classic_keypair(luna_prov_key_ctx *keyctx) {
             { "pss3072", CKK_RSA },
             { "pss2048", CKK_RSA },
             { "bp256", CKK_EC },
+            { "bp384", CKK_EC },
             { "p256", CKK_EC },
             { "p384", CKK_EC },
             { "p521", CKK_EC },
@@ -1485,8 +1488,13 @@ int LUNA_OQS_QUERY_SIG_verify(luna_prov_key_ctx *keyctx) {
     return LUNA_OQS_QUERY_any_public_op(keyctx);
 }
 
+// query the pqc part of the key can be exported in hsm
+int LUNA_OQS_QUERY_EXPORT(luna_prov_key_ctx *keyctx) {
+    return LUNA_OQS_ERROR;
+}
+
 static CK_RV LunaPqcFind(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo);
-static CK_RV LunaPqcGen(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo, int is_kem, int is_ecx);
+static CK_RV LunaPqcGen(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *pkeyinfo, int is_kem, int is_ecx, int is_uri);
 static void _LUNA_OQS_WRITEKEY(luna_prov_key_ctx *keyctx, luna_prov_key_reason reason);
 static void _LUNA_OQS_READKEY(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *keyinfo);
 static void LUNA_OQS_READKEY_NDX_LOCK(luna_prov_key_ctx *keyctx, luna_prov_keyinfo *keyinfo, int ndx_in);
@@ -1505,6 +1513,7 @@ static void LunaTranslateFM2FW(luna_prov_key_ctx *keyctx,
 static int LUNA_OQS_keypair(luna_prov_key_ctx *keyctx, luna_prov_key_bits *keybits) {
     const int is_kem = keybits->is_kem;
     const int is_ecx = 0;
+    const int is_uri = (keyctx->urictx != NULL);
     // check keyctx already initialized
     if (keyctx->magic != LUNA_PROV_MAGIC_ZERO)
         return LUNA_OQS_ERROR;
@@ -1519,14 +1528,24 @@ static int LUNA_OQS_keypair(luna_prov_key_ctx *keyctx, luna_prov_key_bits *keybi
 
     // find in hsm
     // FIXME: if kem (or sig) keys are session objects then they cannot be found, so this can be optimized out
+    // FIXME: if is_uri then we could re-use an already-open session in urictx
     CK_RV rv = (luna_open_context(&keyinfo.sess) == 1) ? CKR_OK : CKR_GENERAL_ERROR;
     if (rv == CKR_OK) {
-        rv = LunaPqcFind(keyctx, &keyinfo);
-        if ( (rv == CKR_OBJECT_COUNT_TOO_SMALL && keyctx->reason == LUNA_PROV_KEY_REASON_ZERO)
-          || (rv == CKR_OBJECT_DECODING_FAILED && keyctx->reason == LUNA_PROV_KEY_REASON_ZERO)
-           ) {
-            _LUNA_OQS_WRITEKEY(keyctx, LUNA_PROV_KEY_REASON_GEN);
-            rv = LunaPqcGen(keyctx, &keyinfo, is_kem, is_ecx);
+        LUNA_PRINTF(("is_uri = %d\n", is_uri));
+        if (is_uri) {
+            rv = LunaPqcFind(keyctx, &keyinfo);
+            if (rv == CKR_OK) {
+                _LUNA_OQS_WRITEKEY(keyctx, LUNA_PROV_KEY_REASON_GEN);
+                rv = LunaPqcGen(keyctx, &keyinfo, is_kem, is_ecx, is_uri);
+            }
+        } else {
+            rv = LunaPqcFind(keyctx, &keyinfo);
+            if ( (rv == CKR_OBJECT_COUNT_TOO_SMALL && keyctx->reason == LUNA_PROV_KEY_REASON_ZERO)
+              || (rv == CKR_OBJECT_DECODING_FAILED && keyctx->reason == LUNA_PROV_KEY_REASON_ZERO)
+               ) {
+                _LUNA_OQS_WRITEKEY(keyctx, LUNA_PROV_KEY_REASON_GEN);
+                rv = LunaPqcGen(keyctx, &keyinfo, is_kem, is_ecx, is_uri);
+            }
         }
 
         // get public key
@@ -3157,11 +3176,13 @@ static int luna_prov_query_ecx(luna_prov_key_ctx *keyctx) {
 int luna_prov_ecx_sig_derive_private(struct ecx_gen_ctx *gctx,
         ECX_KEY *ecx, unsigned char *privout) {
 
+    LUNA_PRINTF(("\n"));
     luna_prov_key_ctx *keyctx = gctx->lunakeyctx;
     // need to check if this is for kem or for sig
     const int is_kem = ECX_KEY_TYPE_is_kem(gctx);
     const int is_sig = ECX_KEY_TYPE_is_sig(gctx);
     const int is_ecx = 1;
+    const int is_uri = (keyctx->urictx != NULL);
     if (is_kem) {
         if ( (luna_get_enable_em_gen_key_pair() != 1)
                 || (luna_prov_query_ecx(keyctx) != 1) ) {
@@ -3202,12 +3223,21 @@ int luna_prov_ecx_sig_derive_private(struct ecx_gen_ctx *gctx,
     // FIXME: if kem (or sig) keys are session objects then they cannot be found, so this can be optimized out
     CK_RV rv = (luna_open_context(&keyinfo.sess) == 1) ? CKR_OK : CKR_GENERAL_ERROR;
     if (rv == CKR_OK) {
-        rv = LunaPqcFind(keyctx, &keyinfo);
-        if ( (rv == CKR_OBJECT_COUNT_TOO_SMALL && keyctx->reason == LUNA_PROV_KEY_REASON_ZERO)
-          || (rv == CKR_OBJECT_DECODING_FAILED && keyctx->reason == LUNA_PROV_KEY_REASON_ZERO)
-           ) {
-            _LUNA_OQS_WRITEKEY(keyctx, LUNA_PROV_KEY_REASON_GEN);
-            rv = LunaPqcGen(keyctx, &keyinfo, is_kem, is_ecx);
+        LUNA_PRINTF(("is_uri = %d\n", is_uri));
+        if (is_uri) {
+            rv = LunaPqcFind(keyctx, &keyinfo);
+            if (rv == CKR_OK) {
+                _LUNA_OQS_WRITEKEY(keyctx, LUNA_PROV_KEY_REASON_GEN);
+                rv = LunaPqcGen(keyctx, &keyinfo, is_kem, is_ecx, is_uri);
+            }
+        } else {
+            rv = LunaPqcFind(keyctx, &keyinfo);
+            if ( (rv == CKR_OBJECT_COUNT_TOO_SMALL && keyctx->reason == LUNA_PROV_KEY_REASON_ZERO)
+              || (rv == CKR_OBJECT_DECODING_FAILED && keyctx->reason == LUNA_PROV_KEY_REASON_ZERO)
+               ) {
+                _LUNA_OQS_WRITEKEY(keyctx, LUNA_PROV_KEY_REASON_GEN);
+                rv = LunaPqcGen(keyctx, &keyinfo, is_kem, is_ecx, 0);
+            }
         }
 
         // get public key
@@ -3493,9 +3523,9 @@ static void LunaTranslateFM2FW(luna_prov_key_ctx *keyctx, CK_KEY_TYPE *pkeytype,
     // check key type
     if (pkeytype != NULL) {
         if (*pkeytype == CKK_ML_KEM) {
-            *pkeytype = 0x00000049UL; /* TODO: hardcoded */
+            *pkeytype = LUNA_FW_CKK_ML_KEM;
         } else if (*pkeytype == CKK_ML_DSA) {
-            *pkeytype = 0x0000004aUL; /* TODO: hardcoded */
+            *pkeytype = LUNA_FW_CKK_ML_DSA;
         }
     }
 
@@ -3540,15 +3570,15 @@ static void LunaTranslateFM2FW(luna_prov_key_ctx *keyctx, CK_KEY_TYPE *pkeytype,
             switch (*pparams) {
             case CKP_ML_KEM_512:
             case CKP_ML_KEM_512_IPD:
-                *pparams = 1; /* TODO: hardcoded */
+                *pparams = LUNA_FW_CKP_ML_KEM_512;
                 break;
             case CKP_ML_KEM_768:
             case CKP_ML_KEM_768_IPD:
-                *pparams = 2; /* TODO: hardcoded */
+                *pparams = LUNA_FW_CKP_ML_KEM_768;
                 break;
             case CKP_ML_KEM_1024:
             case CKP_ML_KEM_1024_IPD:
-                *pparams = 3; /* TODO: hardcoded */
+                *pparams = LUNA_FW_CKP_ML_KEM_1024;
                 break;
             default:
                 *pparams = 0;
@@ -3560,15 +3590,15 @@ static void LunaTranslateFM2FW(luna_prov_key_ctx *keyctx, CK_KEY_TYPE *pkeytype,
             switch (*pparams) {
             case CKP_ML_DSA_44:
             case CKP_ML_DSA_44_IPD:
-                *pparams = 1; /* TODO: hardcoded */
+                *pparams = LUNA_FW_CKP_ML_DSA_44;
                 break;
             case CKP_ML_DSA_65:
             case CKP_ML_DSA_65_IPD:
-                *pparams = 2; /* TODO: hardcoded */
+                *pparams = LUNA_FW_CKP_ML_DSA_65;
                 break;
             case CKP_ML_DSA_87:
             case CKP_ML_DSA_87_IPD:
-                *pparams = 3; /* TODO: hardcoded */
+                *pparams = LUNA_FW_CKP_ML_DSA_87;
                 break;
             default:
                 *pparams = 0;
@@ -3758,29 +3788,75 @@ int LUNA_PARAM_get_encoded_public_key(void *oqsxk_, const OSSL_PARAM *p, void **
 
 #endif /* LUNA_OQS */
 
+static void LUNA_FIND_CTX_free_uris(LUNA_FIND_CTX *ctx);
+
 /* for find object by uri */
 LUNA_FIND_CTX *LUNA_FIND_CTX_new(const char *uri) {
     LUNA_PRINTF(("uri=%s\n", uri));
+    // TODO: unsupported URI syntax (rfc7512) - implemented some day
+    char *tmp = strstr(uri, ";");
+    if ( tmp && strstr(tmp+1, ";") ) {
+        LUNA_PRINTF(("ERROR: unsupported URI syntax (multiple semi-colon).\n"));
+        return NULL;
+    }
+    if ( (tmp=strstr(uri, "object="))
+        || (tmp=strstr(uri, "type="))
+        || (tmp=strstr(uri, "tlsname="))
+        ) {
+        LUNA_PRINTF(("ERROR: unsupported URI syntax at %s .\n", tmp));
+        return NULL;
+    }
+    // unsupported URI syntax (rfc7512)
+    if ( (tmp=strstr(uri, "id="))
+        ) {
+        LUNA_PRINTF(("ERROR: unsupported URI syntax at %s .\n", tmp));
+        return NULL;
+    }
+    // unsupported URI syntax (rfc7512) - implemented never
+    if ( (tmp=strstr(uri, "library-description="))
+        || (tmp=strstr(uri, "library-manufacturer="))
+        || (tmp=strstr(uri, "manufacturer="))
+        || (tmp=strstr(uri, "model="))
+        || (tmp=strstr(uri, "serial="))
+        || (tmp=strstr(uri, "slot-description="))
+        || (tmp=strstr(uri, "slot-id="))
+        || (tmp=strstr(uri, "slot-manufacturer="))
+        || (tmp=strstr(uri, "token="))
+        ) {
+        LUNA_PRINTF(("ERROR: unsupported URI syntax at %s .\n", tmp));
+        return NULL;
+    }
+    char *uri_dup = OPENSSL_strdup(uri);
+    if (uri_dup == NULL)
+        return NULL;
     LUNA_FIND_CTX *ctx = OPENSSL_zalloc(sizeof(*ctx));
     if (ctx == NULL)
         return NULL;
-    ctx->uri = OPENSSL_strdup(uri);
-    if (ctx->uri == NULL) {
-        OPENSSL_free(ctx);
-        return NULL;
+    char *pstr = strstr(uri_dup, ";");
+    if (pstr == NULL) {
+        ctx->uris[0] = OPENSSL_strdup(uri_dup);
+        ctx->uris[1] = OPENSSL_strdup(uri_dup);
+    } else {
+        *pstr = '\0';
+        ctx->uris[0] = OPENSSL_strdup(uri_dup);
+        ctx->uris[1] = OPENSSL_strdup(pstr+1);
     }
     luna_context_t *psess = OPENSSL_zalloc(sizeof(*psess));
     if (psess == NULL) {
-        OPENSSL_free(ctx->uri);
+        LUNA_FIND_CTX_free_uris(ctx);
         OPENSSL_free(ctx);
+        OPENSSL_free(uri_dup);
         return NULL;
     }
     if (luna_open_context(psess) != 1) {
         OPENSSL_free(psess);
-        OPENSSL_free(ctx->uri);
+        LUNA_FIND_CTX_free_uris(ctx);
         OPENSSL_free(ctx);
+        OPENSSL_free(uri_dup);
         return NULL;
     }
+    OPENSSL_free(uri_dup);
+    uri_dup = NULL;
     ctx->psess = psess;
     ctx->magic = 1;
     return ctx;
@@ -3790,10 +3866,7 @@ void LUNA_FIND_CTX_free(LUNA_FIND_CTX *ctx) {
     LUNA_PRINTF(("\n"));
     if (ctx == NULL)
         return;
-    if (ctx->uri != NULL) {
-        OPENSSL_free(ctx->uri);
-    }
-    ctx->uri = NULL;
+    LUNA_FIND_CTX_free_uris(ctx);
     if (ctx->psess != NULL) {
         luna_close_context(ctx->psess);
         OPENSSL_free(ctx->psess);
@@ -3804,28 +3877,69 @@ void LUNA_FIND_CTX_free(LUNA_FIND_CTX *ctx) {
     OPENSSL_free(ctx);
 }
 
+static void LUNA_FIND_CTX_free_uris(LUNA_FIND_CTX *ctx) {
+    for (int i = 0; i < MAX_URI; i++) {
+        if (ctx->uris[i] != NULL) {
+            OPENSSL_free(ctx->uris[i]);
+            ctx->uris[i] = NULL;
+        }
+    }
+}
+
 int LUNA_FIND_CTX_next(LUNA_FIND_CTX *ctx) {
     int rc = 0;
     EVP_PKEY *pkey = NULL;
+    void *poqskey = NULL;
+    void *pecxkey = NULL;
     LUNA_PRINTF(("count = %d\n", ctx->count));
     switch (ctx->count) {
     case 0:
         // load PKEY (private key required and public key optional)
-        pkey = luna_load_anykey(NULL, ctx->uri, NULL, NULL, 0);
+        pkey = luna_load_anykey(NULL, ctx->uris[0], NULL, NULL, 0, &poqskey, &pecxkey);
+        if (poqskey == ((void*)(size_t)17)) { // FIXME:SW:sentinel!
+            poqskey = NULL;
+            pkey = luna_load_anykey(NULL, (ctx->uris[1] != NULL ? ctx->uris[1] : ctx->uris[0]),
+                NULL, NULL, 0, &poqskey, &pecxkey);
+        }
         break;
+#if 1 // FIXME:SW: would only call this if user specified public key only
     case 1:
         // load PUBKEY (public key required)
-        pkey = luna_load_anykey(NULL, ctx->uri, NULL, NULL, 1);
+        pkey = luna_load_anykey(NULL, (ctx->uris[1] != NULL ? ctx->uris[1] : ctx->uris[0]),
+            NULL, NULL, 1, &poqskey, &pecxkey);
+        if (poqskey == ((void*)(size_t)17)) { // FIXME:SW:sentinel!
+            poqskey = NULL;
+            pkey = luna_load_anykey(NULL, (ctx->uris[1] != NULL ? ctx->uris[1] : ctx->uris[0]),
+                NULL, NULL, 1, &poqskey, &pecxkey);
+        }
         break;
+#endif
     default:
         pkey = NULL;
         break;
     }
-    if (pkey != NULL) {
-        ctx->current = &ctx->pkeys[ctx->count];
-        ctx->current->pkey = pkey;
-        ctx->count++;
-        rc = 1;
+    if (pkey != NULL || poqskey != NULL || pecxkey != NULL) {
+        const int cnt = (pkey?1:0) + (poqskey?1:0) + (pecxkey?1:0);
+        LUNA_ASSERT( cnt == 1 );
+        if (pkey != NULL) {
+            ctx->current = &ctx->xkeys[ctx->count];
+            ctx->current->xkey = pkey;
+            ctx->current->xtype = 0;
+            ctx->count++;
+            rc = 1;
+        } else if (poqskey != NULL) {
+            ctx->current = &ctx->xkeys[ctx->count];
+            ctx->current->xkey = poqskey;
+            ctx->current->xtype = 1;
+            ctx->count++;
+            rc = 1;
+        } else if (pecxkey != NULL) {
+            ctx->current = &ctx->xkeys[ctx->count];
+            ctx->current->xkey = pecxkey;
+            ctx->current->xtype = 2;
+            ctx->count++;
+            rc = 1;
+        }
     }
     LUNA_PRINTF(("rc = %d\n", rc));
     return rc;
@@ -3871,3 +3985,332 @@ const char *luna_tls_name(const char *txt) {
     return tls_name;
 }
 
+//
+// load pqc hybrid key from URI
+//
+
+luna_uri_ctx *luna_uri_ctx_new(void) {
+    luna_uri_ctx *p = (luna_uri_ctx *)OPENSSL_zalloc(sizeof(*p));
+    if (p == NULL)
+        return NULL;
+    return p;
+}
+
+void luna_uri_ctx_free(luna_uri_ctx *p) {
+    if (p == NULL)
+        return;
+    OPENSSL_free(p);
+}
+
+static void luna_prov_load_subtype(luna_context_t *pctx, luna_uri_ctx *urictx,
+    luna_uri_item_detail *pdetail);
+
+static void luna_prov_load_tls_name(luna_context_t *pctx,
+    luna_uri_ctx *urictx);
+
+static EVP_PKEY *luna_prov_load_keytype(luna_context_t *pctx, luna_uri_ctx *urictx,
+        void **ppoqskey,  void **ppecxkey) {
+    EVP_PKEY *rckey = NULL;
+    int i = 0;
+    luna_uri_item *uitem = NULL;
+
+    LUNA_PRINTF(("urictx = %p\n", urictx));
+    if ( urictx == NULL )
+        return NULL;
+
+    LUNA_PRINTF(("hintPublic = %d\n", urictx->hintPublic));
+    LUNA_PRINTF(("hint_tls_name = %s\n", urictx->hint_tls_name));
+    LUNA_PRINTF(("count = %d\n", urictx->count));
+    if ( urictx->count < 1 || urictx->count > MAX_URI_ITEM )
+        return NULL;
+
+    // determine the exact subtype (keysize)
+    for ( i = 0; i < urictx->count; i++) {
+        uitem = &urictx->items[i];
+        (void) luna_prov_load_subtype(pctx, urictx, &(uitem->pri));
+        (void) luna_prov_load_subtype(pctx, urictx, &(uitem->pub));
+        LUNA_PRINTF(("[%d] pri:\n", i));
+        LUNA_PRINTF(("  handle = %lu\n", uitem->pri.handle));
+        LUNA_PRINTF(("  type = %lu\n", uitem->pri.type));
+        LUNA_PRINTF(("  subtype = %lu\n", uitem->pri.subtype));
+        LUNA_PRINTF(("  tls_name = %s\n", uitem->pri.tls_name));
+        LUNA_PRINTF(("[%d] pub:\n", i));
+        LUNA_PRINTF(("  handle = %lu\n", uitem->pub.handle));
+        LUNA_PRINTF(("  type = %lu\n", uitem->pub.type));
+        LUNA_PRINTF(("  subtype = %lu\n", uitem->pub.subtype));
+        LUNA_PRINTF(("  tls_name = %s\n", uitem->pub.tls_name));
+        if ( uitem->pri.handle == 0 && uitem->pub.handle == 0 )
+            return NULL;
+        if ( uitem->pri.handle != 0 ) {
+            if ( uitem->pub.handle != 0 ) {
+                // private and public keypair
+                if ( uitem->pub.type != uitem->pri.type )
+                    return NULL;
+                if ( uitem->pub.subtype != uitem->pri.subtype )
+                    return NULL;
+                if ( uitem->pri.subtype == 0 )
+                    return NULL;
+                if ( uitem->pub.tls_name == NULL ||  uitem->pri.tls_name == NULL )
+                    return NULL;
+            } else {
+                // just private key
+                // pri.type could be zero as in CKK_RSA
+                if ( uitem->pri.subtype == 0 )
+                    return NULL;
+                if ( uitem->pri.tls_name == NULL )
+                    return NULL;
+            }
+        } else {
+            // just public key
+            LUNA_ASSERT( uitem->pub.handle != 0 );
+            // pub.type could be zero as in CKK_RSA
+            if ( uitem->pub.subtype == 0 )
+                return NULL;
+            if ( uitem->pub.tls_name == NULL )
+                return NULL;
+        }
+
+        // share tls_name
+        uitem->tls_name = uitem->pri.tls_name ? uitem->pri.tls_name : uitem->pub.tls_name;
+        LUNA_PRINTF(("shared tls_name = %s\n", uitem->tls_name));
+        if ( uitem->tls_name == NULL )
+            return NULL;
+    }
+
+    // determine the output tls_name
+    (void) luna_prov_load_tls_name(pctx, urictx);
+    LUNA_PRINTF(("output tls_name = %s\n", urictx->tls_name));
+    if ( urictx->tls_name == NULL )
+        return NULL;
+
+    // output tls_name should match input tls_name (if given)
+    if (urictx->hint_tls_name != NULL) {
+        if (strcmp(urictx->hint_tls_name, urictx->tls_name) != 0) {
+            LUNA_PRINTF(("ERROR: tls_name != hint_tls_name\n"));
+            return NULL;
+        }
+    }
+
+    if (1) {
+        const int selection = urictx->hintPublic ? OSSL_KEYMGMT_SELECT_PUBLIC_KEY
+            : OSSL_KEYMGMT_SELECT_KEYPAIR; // FIXME:SW: OSSL_KEYMGMT_SELECT_PRIVATE_KEY ?
+        void *provctx = NULL; // TODO: null?
+        void *oqs_key = luna_oqs_recreate_key(urictx, provctx, selection);
+        if (oqs_key != NULL) {
+            // caller takes ownership of oqsx_key
+            // oqsx_key takes ownership of urictx
+            *ppoqskey = oqs_key;
+            oqs_key = NULL;
+            urictx = NULL;
+        } else {
+            void *ecx_key = luna_ecx_recreate_key(urictx, provctx, selection);
+            if (ecx_key != NULL) {
+                // caller takes ownership of ecx_key
+                // ecx_key takes ownership of urictx
+                *ppecxkey = ecx_key;
+                ecx_key = NULL;
+                urictx = NULL;
+            }
+        }
+    }
+    // TODO: hybrid? composite? ecx?
+    return rckey;
+}
+
+void luna_prov_key_ctx_set_urictx(luna_prov_key_ctx *keyctx, luna_uri_ctx *urictx) {
+    keyctx->urictx = urictx;
+}
+
+luna_uri_ctx *luna_prov_key_ctx_get_urictx(luna_prov_key_ctx *keyctx) {
+    return keyctx->urictx;
+}
+
+int luna_prov_key_ctx_is_public(luna_prov_key_ctx *keyctx) {
+    if (keyctx->urictx == NULL)
+        return 0;
+    return keyctx->urictx->hintPublic;
+}
+
+static CK_ULONG CKA_PARAMETER_SET_to_subtype_mldsa(CK_ULONG ckParam, char **tls_name);
+static CK_ULONG CKA_PARAMETER_SET_to_subtype_mlkem(CK_ULONG ckParam, char **tls_name);
+static CK_ULONG CKA_ECDSA_PARAMS_to_subtype(void *pValue, CK_ULONG ulValueLen, char **tls_name);
+static CK_ULONG CKA_MODULUS_to_subtype(void *pValue, CK_ULONG ulValueLen, int is_pss, char **tls_name);
+
+static void luna_prov_load_subtype(luna_context_t *pctx, luna_uri_ctx *urictx,
+    luna_uri_item_detail *udetail) {
+    CK_SESSION_HANDLE hSession = pctx->hSession;
+    CK_OBJECT_HANDLE hKey = udetail->handle;
+    if (!hKey)
+        return;
+    if ( (udetail->type == CKK_MLDSA || udetail->type == LUNA_FW_CKK_ML_DSA) ) {
+        // mldsa has CKA_PARAMETER_SET
+        CK_KEY_PARAMS ckParam = CKP_INVALID;
+        CK_ATTRIBUTE ckTemplate[] = {
+            {CKA_PARAMETER_SET, &ckParam, sizeof(ckParam)}
+        };
+        CK_RV rv = P11->C_GetAttributeValue(hSession, hKey, ckTemplate, DIM(ckTemplate));
+        if (rv != CKR_OK)
+            return;
+        udetail->subtype = CKA_PARAMETER_SET_to_subtype_mldsa(ckParam, &udetail->tls_name);
+        return;
+    } else if ( (udetail->type == CKK_EC) || (udetail->type == CKK_EC_EDWARDS) ) {
+        // ec has CKA_ECDSA_PARAMS
+        CK_KEY_PARAMS ckParam = CKP_INVALID;
+        CK_BYTE curveXX[16] = {0};
+        CK_ATTRIBUTE ckTemplate[] = {
+            {CKA_ECDSA_PARAMS, &curveXX, sizeof(curveXX)}
+        };
+        CK_RV rv = P11->C_GetAttributeValue(hSession, hKey, ckTemplate, DIM(ckTemplate));
+        if (rv != CKR_OK)
+            return;
+        udetail->subtype = CKA_ECDSA_PARAMS_to_subtype(ckTemplate[0].pValue, ckTemplate[0].ulValueLen, &udetail->tls_name);
+        return;
+    } else if (udetail->type == CKK_RSA) {
+        // rsa public has CKA_MODULUS_BITS
+        // rsa private/public has CKA_MODULUS
+        CK_ATTRIBUTE ckTemplate[] = {
+            {CKA_MODULUS, 0, 0}
+        };
+        CK_RV rv = P11->C_GetAttributeValue(hSession, hKey, ckTemplate, DIM(ckTemplate));
+        if (rv != CKR_OK)
+            return;
+        const int is_pss = (urictx->hint_tls_name) ? (strstr(urictx->hint_tls_name, "pss") ? 1 : 0) : 0;
+        udetail->subtype = CKA_MODULUS_to_subtype(ckTemplate[0].pValue, ckTemplate[0].ulValueLen, is_pss, &udetail->tls_name);
+        return;
+    } else if ( (udetail->type == CKK_MLKEM || udetail->type == LUNA_FW_CKK_ML_KEM) ) {
+        // mlkem has CKA_PARAMETER_SET
+        CK_KEY_PARAMS ckParam = CKP_INVALID;
+        CK_ATTRIBUTE ckTemplate[] = {
+            {CKA_PARAMETER_SET, &ckParam, sizeof(ckParam)}
+        };
+        CK_RV rv = P11->C_GetAttributeValue(hSession, hKey, ckTemplate, DIM(ckTemplate));
+        if (rv != CKR_OK)
+            return;
+        udetail->subtype = CKA_PARAMETER_SET_to_subtype_mlkem(ckParam, &udetail->tls_name);
+        return;
+    }
+    // TODO: see function gen_init_tab in case you add more algorithms
+}
+
+static CK_ULONG CKA_PARAMETER_SET_to_subtype_mldsa(CK_ULONG ckParam, char **tls_name) {
+    switch (ckParam) {
+    case LUNA_FW_CKP_ML_DSA_44:
+        *tls_name = OPENSSL_strdup("mldsa44");
+        return LUNA_FW_CKP_ML_DSA_44;
+    case LUNA_FW_CKP_ML_DSA_65:
+        *tls_name = OPENSSL_strdup("mldsa65");
+        return LUNA_FW_CKP_ML_DSA_65;
+    case LUNA_FW_CKP_ML_DSA_87:
+        *tls_name = OPENSSL_strdup("mldsa87");
+        return LUNA_FW_CKP_ML_DSA_87;
+    }
+    return 0;
+}
+
+static CK_ULONG CKA_PARAMETER_SET_to_subtype_mlkem(CK_ULONG ckParam, char **tls_name) {
+    switch (ckParam) {
+    case LUNA_FW_CKP_ML_KEM_512:
+        *tls_name = OPENSSL_strdup("mlkem512");
+        return LUNA_FW_CKP_ML_KEM_512;
+    case LUNA_FW_CKP_ML_KEM_768:
+        *tls_name = OPENSSL_strdup("mlkem768");
+        return LUNA_FW_CKP_ML_KEM_768;
+    case LUNA_FW_CKP_ML_KEM_1024:
+        *tls_name = OPENSSL_strdup("mlkem1024");
+        return LUNA_FW_CKP_ML_KEM_1024;
+    }
+    return 0;
+}
+
+#define curve_p256_len 10
+static unsigned char curve_p256[] = {0x06, 0x08, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07};
+
+#define curve_p384_len 7
+static unsigned char curve_p384[] = {0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x22};
+
+#define curve_p521_len 7
+static unsigned char curve_p521[] = {0x06, 0x05, 0x2B, 0x81, 0x04, 0x00, 0x23};
+
+#define curve_bp256_len 11
+static unsigned char curve_bp256[] = {0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x07}; // brainpoolP256r1
+// 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x08, brainpoolP256t1 ?
+
+#define curve_bp384_len 11
+static unsigned char curve_bp384[] = {0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0b}; // brainpoolP384r1
+// 0x06, 0x09, 0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0c, brainpoolP384t1 ?
+
+static struct {
+    const CK_BYTE *p;
+    CK_ULONG len;
+    const char *tls_name;
+} curve_tab[] = {
+    // dummy at index [0]
+    { NULL, 0, NULL },
+    // ecx
+    { curve_ed25519, curve_ed25519_len, "ed25519" },
+    { curve_ed448, curve_ed448_len, "ed448" },
+    { curve_x25519, curve_x25519_len, "x25519" },
+    { curve_x448, curve_x448_len, "x448" },
+    // brainpool before ec
+    { curve_bp256, curve_bp256_len, "bp256" },
+    { curve_bp384, curve_bp384_len, "bp384" },
+    // ec
+    { curve_p256, curve_p256_len, "p256" },
+    { curve_p384, curve_p384_len, "p384" },
+    { curve_p521, curve_p521_len, "p521" },
+};
+
+static CK_ULONG CKA_ECDSA_PARAMS_to_subtype(void *pValue, CK_ULONG ulValueLen, char **tls_name) {
+    unsigned i;
+    for ( i = 1; i < DIM(curve_tab); i++ ) {
+        if ( ulValueLen == curve_tab[i].len && memcmp(pValue, curve_tab[i].p, ulValueLen) == 0 ) {
+            *tls_name = OPENSSL_strdup(curve_tab[i].tls_name);
+            return i;
+        }
+    }
+    return 0;
+}
+
+static CK_ULONG CKA_MODULUS_to_subtype(void *pValue, CK_ULONG ulValueLen, int is_pss, char **tls_name) {
+    if ( (ulValueLen >= (2048/8)) && (ulValueLen <= (8192/8)) ) {
+        CK_ULONG ulBits = (ulValueLen * 8);
+        char sz[32] = {0};
+        if (is_pss) {
+            (void) snprintf(sz, sizeof(sz), "pss%u", (unsigned)ulBits);
+        } else {
+            (void) snprintf(sz, sizeof(sz), "rsa%u", (unsigned)ulBits);
+        }
+        *tls_name = OPENSSL_strdup(sz);
+        return ulBits;
+    }
+    return 0;
+}
+
+static void luna_prov_load_tls_name(luna_context_t *pctx, luna_uri_ctx *urictx) {
+    size_t slen = 0;
+    int i = 0;
+    luna_uri_item *uitem = NULL;
+    char *str = NULL;
+    for ( i = 0; i < urictx->count; i++ ) {
+        if ( i > 0 ) {
+            slen += 1;
+        }
+        uitem = &(urictx->items[i]);
+        slen += strlen(uitem->tls_name);
+    }
+    slen += 1;
+    str = OPENSSL_malloc(slen);
+    if (str == NULL)
+        return;
+    str[0] = 0;
+    for ( i = 0; i < urictx->count; i++ ) {
+        if ( i > 0 ) {
+            strncat(str, "_", slen);
+        }
+        uitem = &(urictx->items[i]);
+        strncat(str, uitem->tls_name, slen);
+    }
+    // urictx takes ownership of string
+    urictx->tls_name = str;
+    str = NULL;
+}

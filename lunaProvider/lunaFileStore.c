@@ -1035,6 +1035,7 @@ static int file_load_pkcs11_object(struct file_ctx_st *ctx,
                           OSSL_CALLBACK *object_cb, void *object_cbarg,
                           OSSL_PASSPHRASE_CALLBACK *pw_cb, void *pw_cbarg)
 {
+    int rc = 0;
     LUNA_ASSERT(ctx->_.pkcs11.no_more_objects == 0);
     LUNA_FIND_CTX *find_ctx = ctx->_.pkcs11.find_ctx;
     if (LUNA_FIND_CTX_next(find_ctx) != 1) {
@@ -1044,46 +1045,88 @@ static int file_load_pkcs11_object(struct file_ctx_st *ctx,
 
     LUNA_PKEY_CTX *pkctx = find_ctx->current;
     LUNA_ASSERT(pkctx != NULL);
-    EVP_PKEY *pkey = pkctx->pkey;
-    LUNA_ASSERT(pkey != NULL);
-
-    const int pktype = EVP_PKEY_get_id(pkey);
-    LUNA_PRINTF(("pktype = %d\n", pktype));
-    int object_type = OSSL_OBJECT_PKEY;
+    LUNA_ASSERT(pkctx->xtype >= 0 && pkctx->xtype <= 2);
+    int object_type = OSSL_OBJECT_UNKNOWN;
     char *data_type = NULL;
     void *reference = NULL;
     size_t reference_sz = 0;
-    switch (pktype) {
-    case EVP_PKEY_RSA:
-        data_type = "RSA"; // TODO: "RSA-PSS" ?
-        pkctx->kk.rsa = EVP_PKEY_get1_RSA(pkey);
-        LUNA_ASSERT(pkctx->kk.rsa != NULL);
-        reference = (void*)&pkctx->kk.rsa;
+    LUNA_PRINTF(("pkctx->xtype = %d\n", pkctx->xtype));
+    if (pkctx->xtype == 0) {
+        EVP_PKEY *pkey = (EVP_PKEY *)pkctx->xkey;
+        LUNA_ASSERT(pkey != NULL);
+        const int pktype = EVP_PKEY_get_id(pkey);
+        LUNA_PRINTF(("pktype = %d\n", pktype));
+        object_type = OSSL_OBJECT_PKEY;
+        switch (pktype) {
+        case EVP_PKEY_RSA:
+            data_type = "RSA"; // TODO: "RSA-PSS" ?
+            pkctx->kk.rsa = EVP_PKEY_get1_RSA(pkey);
+            LUNA_ASSERT(pkctx->kk.rsa != NULL);
+            reference = (void*)&pkctx->kk.rsa;
+            reference_sz = sizeof(reference);
+            break;
+        case EVP_PKEY_DSA:
+            data_type = "DSA";
+            pkctx->kk.dsa = EVP_PKEY_get1_DSA(pkey);
+            LUNA_ASSERT(pkctx->kk.dsa != NULL);
+            reference = (void*)&pkctx->kk.dsa;
+            reference_sz = sizeof(reference);
+            break;
+        case EVP_PKEY_EC:
+            data_type = "EC";
+            pkctx->kk.ec = EVP_PKEY_get1_EC_KEY(pkey);
+            LUNA_ASSERT(pkctx->kk.ec != NULL);
+            reference = (void*)&pkctx->kk.ec;
+            reference_sz = sizeof(reference);
+            break;
+        default:
+            // TODO: EC_EDWARDS
+            return 0;
+        }
+
+    } else if (pkctx->xtype == 1) {
+        OQSX_KEY *poqskey = (OQSX_KEY *)pkctx->xkey;
+        LUNA_ASSERT(poqskey != NULL);
+        // NOTE: OSSL_OBJECT_PKEY meaning openssl shall create a PKEY using the reference supplied here
+        object_type = OSSL_OBJECT_PKEY;
+        // NOTE: use the same tls_name as in lunaCommon::algtab
+        data_type = poqskey->tls_name;
+        pkctx->kk.pqc = poqskey;
+        reference = (void*)&pkctx->kk.pqc;
         reference_sz = sizeof(reference);
-        break;
-    case EVP_PKEY_DSA:
-        data_type = "DSA";
-        pkctx->kk.dsa = EVP_PKEY_get1_DSA(pkey);
-        LUNA_ASSERT(pkctx->kk.dsa != NULL);
-        reference = (void*)&pkctx->kk.dsa;
+
+    } else if (pkctx->xtype == 2) {
+        ECX_KEY *pecxkey = (ECX_KEY *)pkctx->xkey;
+        LUNA_ASSERT(pecxkey != NULL);
+        // NOTE: OSSL_OBJECT_PKEY meaning openssl shall create a PKEY using the reference supplied here
+        object_type = OSSL_OBJECT_PKEY;
+        switch (pecxkey->type) {
+        case ECX_KEY_TYPE_X25519:
+            data_type = "x25519";
+            break;
+        case ECX_KEY_TYPE_X448:
+            data_type = "x448";
+            break;
+        case ECX_KEY_TYPE_ED25519:
+            data_type = "ed25519";
+            break;
+        case ECX_KEY_TYPE_ED448:
+            data_type = "ed25519";
+            break;
+        default:
+            data_type = "ecxXX";
+            return 0;
+        }
+        pkctx->kk.ecx = pecxkey;
+        reference = (void*)&pkctx->kk.ecx;
         reference_sz = sizeof(reference);
-        break;
-    case EVP_PKEY_EC:
-        data_type = "EC";
-        pkctx->kk.ec = EVP_PKEY_get1_EC_KEY(pkey);
-        LUNA_ASSERT(pkctx->kk.ec != NULL);
-        reference = (void*)&pkctx->kk.ec;
-        reference_sz = sizeof(reference);
-        break;
-    default:
-        // TODO: PQC keytypes
-        return 0;
     }
 
-    LUNA_ASSERT(object_type != 0);
+    LUNA_ASSERT(object_type != OSSL_OBJECT_UNKNOWN);
     LUNA_ASSERT(data_type != NULL);
     LUNA_ASSERT(reference != NULL);
     LUNA_ASSERT(reference_sz != 0);
+    LUNA_PRINTF(("data_type = %s\n", data_type));
     LUNA_PRINTF(("reference = 0x%p\n", reference));
     LUNA_PRINTF(("reference_sz = %lu\n", reference_sz));
     OSSL_PARAM params[4];
@@ -1091,7 +1134,7 @@ static int file_load_pkcs11_object(struct file_ctx_st *ctx,
     params[1] = OSSL_PARAM_construct_utf8_string(OSSL_OBJECT_PARAM_DATA_TYPE, data_type, 0);
     params[2] = OSSL_PARAM_construct_octet_string(OSSL_OBJECT_PARAM_REFERENCE, reference, reference_sz);
     params[3] = OSSL_PARAM_construct_end();
-    int rc = object_cb(params, object_cbarg);
+    rc = object_cb(params, object_cbarg);
     LUNA_PRINTF(("rc = %d\n", rc));
     return rc;
 }
